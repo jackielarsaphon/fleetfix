@@ -19,6 +19,7 @@ import VehicleNewScreen from './screens/VehicleNewScreen.jsx';
 export default function App() {
   // ── ข้อมูลจากฐานข้อมูล ───────────────────────────────────
   const [data, setData] = useState({ jobs: [], vehicles: [], places: [] });
+  const [stats, setStats] = useState(null); // ตัวเลขแดชบอร์ดจากฐานข้อมูล
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
 
@@ -41,8 +42,10 @@ export default function App() {
     setLoading(true);
     setLoadError(null);
     try {
-      const next = await api.fetchAll();
+      // แดชบอร์ดใช้ตัวเลขที่ฐานข้อมูลคำนวณ (ค่าซ่อมรายเดือน, เวลาซ่อมเฉลี่ย)
+      const [next, dash] = await Promise.all([api.fetchAll(), api.fetchDashboard()]);
       setData(next);
+      setStats(dash);
       setSelectedVehicle((cur) => cur ?? next.vehicles[0]?.code ?? null);
     } catch (err) {
       setLoadError(err);
@@ -283,6 +286,8 @@ export default function App() {
           <DashboardScreen
             counts={counts}
             perVehicle={perVehicle}
+            jobs={jobs}
+            stats={stats}
             onOpenVehicle={(code) => {
               setSelectedVehicle(code);
               setScreen('fleet');

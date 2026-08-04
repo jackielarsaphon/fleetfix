@@ -23,7 +23,27 @@ func (s *Store) Dashboard(ctx context.Context) (model.Dashboard, error) {
 	if d.OpenCost, err = s.OpenCost(ctx); err != nil {
 		return d, err
 	}
+	if d.AvgRepairDays, d.AvgRepairDaysPrev, err = s.AvgRepairDays(ctx); err != nil {
+		return d, err
+	}
 	return d, nil
+}
+
+// AvgRepairDays คืนเวลาซ่อมเฉลี่ย (วัน) ของงานที่ปิดในเดือนนี้ และเดือนก่อน
+// นับจากวันที่แจ้งถึงวันที่ปิดงาน — คืน nil เมื่อเดือนนั้นไม่มีงานปิดเลย
+func (s *Store) AvgRepairDays(ctx context.Context) (thisMonth, prevMonth *float64, err error) {
+	err = s.pool.QueryRow(ctx, `
+		select
+		  avg(j.done_on - j.reported_on) filter (
+		    where date_trunc('month', j.done_on) = date_trunc('month', current_date))::float8,
+		  avg(j.done_on - j.reported_on) filter (
+		    where date_trunc('month', j.done_on) = date_trunc('month', current_date - interval '1 month'))::float8
+		  from public.repair_jobs j
+		 where j.done_on is not null`).Scan(&thisMonth, &prevMonth)
+	if err != nil {
+		return nil, nil, classify(err)
+	}
+	return thisMonth, prevMonth, nil
 }
 
 // StatusCounts คืนจำนวนใบงานและค่าซ่อมรวมแยกตามสถานะ

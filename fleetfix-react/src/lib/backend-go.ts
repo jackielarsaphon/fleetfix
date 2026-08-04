@@ -8,11 +8,13 @@
 // ────────────────────────────────────────────────────────────
 
 import type {
+  DashboardStats,
   DataSet,
   EditJobDraft,
   EditPlaceForm,
   EditVehicleForm,
   Job,
+  MonthlyCost,
   NewJobDraft,
   NewPlaceForm,
   NewVehicleForm,
@@ -155,6 +157,21 @@ export async function fetchAll(): Promise<DataSet> {
     jobs: (jobs?.jobs || []).map(mapJob),
     vehicles: (vehicles?.vehicles || []).map(mapVehicle),
     places: (places?.places || []).map(mapPlace),
+  };
+}
+
+/** ตัวเลขแดชบอร์ด — คำนวณจากฐานข้อมูลทั้งหมด */
+export async function fetchDashboard(): Promise<DashboardStats> {
+  const d = await request<{
+    monthly: MonthlyCost[] | null;
+    avgRepairDays: number | null;
+    avgRepairDaysPrev: number | null;
+  }>('GET', '/api/dashboard');
+
+  return {
+    monthly: d?.monthly || [],
+    avgRepairDays: d?.avgRepairDays ?? null,
+    avgRepairDaysPrev: d?.avgRepairDaysPrev ?? null,
   };
 }
 

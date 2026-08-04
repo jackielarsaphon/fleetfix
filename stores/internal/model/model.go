@@ -123,6 +123,9 @@ type Dashboard struct {
 	Monthly      []MonthlyCost `json:"monthly"`
 	Frequent     []Vehicle     `json:"frequent"`
 	OpenCost     float64       `json:"openCost"`
+	// เวลาซ่อมเฉลี่ย (วัน) ของงานที่ปิดในเดือนนี้และเดือนก่อน — null เมื่อไม่มีงานปิดในเดือนนั้น
+	AvgRepairDays     *float64 `json:"avgRepairDays"`
+	AvgRepairDaysPrev *float64 `json:"avgRepairDaysPrev"`
 }
 
 // ── รับเข้า ─────────────────────────────────────────────────

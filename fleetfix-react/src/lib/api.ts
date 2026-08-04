@@ -26,6 +26,7 @@ export const isConfigured = backend.isConfigured;
 export const isApiDown = backend.isApiDown;
 
 export const fetchAll = backend.fetchAll;
+export const fetchDashboard = backend.fetchDashboard;
 export const createJob = backend.createJob;
 export const updateJob = backend.updateJob;
 export const deleteJob = backend.deleteJob;
@@ -46,7 +47,9 @@ export const deleteJobPhoto = backend.deleteJobPhoto;
 
 export type {
   Backend,
+  DashboardStats,
   DataSet,
+  MonthlyCost,
   EditJobDraft,
   EditPlaceForm,
   EditVehicleForm,

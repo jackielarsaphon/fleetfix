@@ -12,6 +12,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type {
+  DashboardStats,
   DataSet,
   EditJobDraft,
   EditPlaceForm,
@@ -202,6 +203,42 @@ export async function fetchAll(): Promise<DataSet> {
     jobs: jobRows.map((row) => mapJob(row, partsByJob.get(row.id) || [])),
     vehicles: vehicleRows.map(mapVehicle),
     places: placeRows.map(mapPlace),
+  };
+}
+
+/** ตัวเลขแดชบอร์ด — อ่านจาก view monthly_repair_cost และคำนวณเวลาซ่อมเฉลี่ยจากใบงานที่ปิดแล้ว */
+export async function fetchDashboard(): Promise<DashboardStats> {
+  const [monthRows, closed] = await Promise.all([
+    db.from('monthly_repair_cost').select('month, job_count, total_cost').order('month').then(unwrap) as Promise<
+      { month: string; job_count: number; total_cost: number }[]
+    >,
+    db.from('repair_jobs').select('reported_on, done_on').not('done_on', 'is', null).then(unwrap) as Promise<
+      { reported_on: string; done_on: string }[]
+    >,
+  ]);
+
+  const now = new Date();
+  const key = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+  const thisKey = key(now);
+  const prevKey = key(new Date(now.getFullYear(), now.getMonth() - 1, 1));
+
+  // เฉลี่ยจำนวนวันซ่อมของงานที่ปิดในเดือนนั้น ๆ
+  const avgOf = (monthKey: string): number | null => {
+    const days = closed
+      .filter((j) => j.done_on?.slice(0, 7) === monthKey)
+      .map((j) => (Date.parse(j.done_on) - Date.parse(j.reported_on)) / 86400000);
+    if (!days.length) return null;
+    return days.reduce((a, b) => a + b, 0) / days.length;
+  };
+
+  return {
+    monthly: monthRows.map((r) => ({
+      month: r.month.slice(0, 7),
+      jobCount: Number(r.job_count),
+      totalCost: Number(r.total_cost),
+    })),
+    avgRepairDays: avgOf(thisKey),
+    avgRepairDaysPrev: avgOf(prevKey),
   };
 }
 

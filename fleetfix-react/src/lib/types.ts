@@ -247,6 +247,21 @@ export interface DataSet {
   places: Place[];
 }
 
+/** ค่าซ่อมรวมของเดือนหนึ่ง — month เป็น 'YYYY-MM' */
+export interface MonthlyCost {
+  month: string;
+  jobCount: number;
+  totalCost: number;
+}
+
+/** ตัวเลขสำหรับแดชบอร์ดที่คำนวณจากฐานข้อมูล */
+export interface DashboardStats {
+  monthly: MonthlyCost[];
+  /** เวลาซ่อมเฉลี่ย (วัน) ของงานที่ปิดในเดือนนี้ / เดือนก่อน — null เมื่อเดือนนั้นไม่มีงานปิด */
+  avgRepairDays: number | null;
+  avgRepairDaysPrev: number | null;
+}
+
 /**
  * backend-go.ts และ backend-supabase.ts ต้องมีครบทุกอย่างในนี้และชนิดตรงกัน
  * (api.ts บังคับด้วยการ assign ทั้งสองโมดูลเข้ากับ interface นี้)
@@ -256,6 +271,7 @@ export interface Backend {
   isApiDown(error: unknown): boolean;
 
   fetchAll(): Promise<DataSet>;
+  fetchDashboard(): Promise<DashboardStats>;
 
   createJob(draft: NewJobDraft): Promise<Job>;
   updateJob(jobId: string, draft: EditJobDraft): Promise<Job>;
