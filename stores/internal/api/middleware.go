@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"net/http"
 	"slices"
+	"strings"
 	"time"
 )
 
@@ -54,13 +55,44 @@ func requestLogger(next http.Handler) http.Handler {
 	})
 }
 
+// originAllowed ตรวจว่า origin นี้อยู่ในรายการที่อนุญาตไหม
+//
+// รองรับ 3 รูปแบบ: "*" อนุญาตทุก origin, "http://localhost:5173" ตรงตัว,
+// และ "http://localhost:*" ทุกพอร์ตของ host นั้น — แบบสุดท้ายสะดวกตอนพัฒนา
+// เพราะ vite เปลี่ยนพอร์ตเองเมื่อพอร์ตเดิมไม่ว่าง
+func originAllowed(allowed []string, origin string) bool {
+	for _, a := range allowed {
+		if a == "*" || a == origin {
+			return true
+		}
+		prefix, ok := strings.CutSuffix(a, "*")
+		if !ok || !strings.HasSuffix(prefix, ":") {
+			continue
+		}
+		port, found := strings.CutPrefix(origin, prefix)
+		if found && port != "" && isDigits(port) {
+			return true
+		}
+	}
+	return false
+}
+
+func isDigits(s string) bool {
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
+}
+
 // cors อนุญาต origin ตามที่ตั้งค่าไว้ และตอบ preflight ให้จบที่ middleware นี้
 func cors(allowed []string) middleware {
 	allowAll := slices.Contains(allowed, "*")
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			origin := r.Header.Get("Origin")
-			if origin != "" && (allowAll || slices.Contains(allowed, origin)) {
+			if origin != "" && originAllowed(allowed, origin) {
 				if allowAll {
 					w.Header().Set("Access-Control-Allow-Origin", "*")
 				} else {
