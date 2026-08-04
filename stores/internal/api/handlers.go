@@ -1,6 +1,7 @@
 package api
 
 import (
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -65,6 +66,51 @@ func (s *Server) createJob(w http.ResponseWriter, r *http.Request) {
 	}
 	w.Header().Set("Location", "/api/jobs/"+job.ID)
 	writeJSON(w, http.StatusCreated, job)
+}
+
+func (s *Server) updateJob(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	var in model.EditJob
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, r, badRequest("%v", err))
+		return
+	}
+	job, err := s.store.UpdateJob(r.Context(), id, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
+// ลบใบงานถาวร พร้อมลบไฟล์รูปในที่เก็บไฟล์ตามไปด้วย
+func (s *Server) deleteJob(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+
+	photoPaths, err := s.store.DeleteJob(r.Context(), id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+
+	for _, p := range photoPaths {
+		if err := s.photos.Delete(r.Context(), p); err != nil {
+			slog.Warn("ลบไฟล์รูปของใบงานที่ถูกลบไม่สำเร็จ", "path", p, "err", err)
+		}
+	}
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) advanceJob(w http.ResponseWriter, r *http.Request) {

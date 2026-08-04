@@ -27,6 +27,8 @@ export const isApiDown = backend.isApiDown;
 
 export const fetchAll = backend.fetchAll;
 export const createJob = backend.createJob;
+export const updateJob = backend.updateJob;
+export const deleteJob = backend.deleteJob;
 export const advanceJob = backend.advanceJob;
 export const setPartPr = backend.setPartPr;
 export const createVehicle = backend.createVehicle;
@@ -39,6 +41,7 @@ export const deleteJobPhoto = backend.deleteJobPhoto;
 export type {
   Backend,
   DataSet,
+  EditJobDraft,
   Job,
   NewJobDraft,
   NewPlaceForm,

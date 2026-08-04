@@ -13,6 +13,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 
 import type {
   DataSet,
+  EditJobDraft,
   Job,
   NewJobDraft,
   NewPlaceForm,
@@ -304,6 +305,57 @@ async function readJob(jobId: string): Promise<Job> {
 
   const partRows = (await db.from('job_parts').select(PART_COLUMNS).eq('job_id', jobId).order('line_no').then(unwrap)) as PartRow[];
   return mapJob(row, partRows.map(mapPart));
+}
+
+export async function updateJob(jobId: string, draft: EditJobDraft): Promise<Job> {
+  const vehicleId = await findId('vehicles', 'code', draft.vehicleCode);
+  if (!vehicleId) throw new Error(`ไม่พบเบอร์รถ ${draft.vehicleCode}`);
+
+  const placeId = draft.placeName ? await findId('repair_places', 'name', draft.placeName) : null;
+
+  // status ว่าง = คงสถานะเดิม (จึงไม่ใส่คีย์นี้ลงไป)
+  const patch: Record<string, unknown> = {
+    vehicle_id: vehicleId,
+    place_id: placeId,
+    symptom: draft.symptom,
+    root_cause: draft.rootCause || null,
+    mileage: draft.mileage ?? null,
+    break_on: draft.breakOn || null,
+    done_on: draft.doneOn || null,
+    reporter: draft.reporter || null,
+    note: draft.note || null,
+  };
+  if (draft.status) patch.status = draft.status;
+
+  await db.from('repair_jobs').update(patch).eq('id', jobId).then(unwrap);
+
+  // แทนที่รายชื่อช่างทั้งชุด
+  await db.from('job_technicians').delete().eq('job_id', jobId).then(unwrap);
+  const techs = [...new Set((draft.technicians ?? []).map((t) => (t || '').trim()).filter(Boolean))];
+  if (techs.length) {
+    await db
+      .from('technicians')
+      .upsert(techs.map((name) => ({ name })), { onConflict: 'name', ignoreDuplicates: true })
+      .then(unwrap);
+    const rows = (await db.from('technicians').select('id').in('name', techs).then(unwrap)) as { id: string }[];
+    await db
+      .from('job_technicians')
+      .insert(rows.map((t) => ({ job_id: jobId, technician_id: t.id })))
+      .then(unwrap);
+  }
+
+  return readJob(jobId);
+}
+
+export async function deleteJob(jobId: string): Promise<unknown> {
+  // ลบไฟล์รูปใน Storage ก่อน เพราะพออ่านแถวหลังลบใบงานจะไม่เหลือ path ให้ตามลบ
+  const photos = (await db.from('job_photos').select('storage_path').eq('job_id', jobId).then(unwrap)) as {
+    storage_path: string;
+  }[];
+  if (photos.length) {
+    await db.storage.from(PHOTO_BUCKET).remove(photos.map((p) => p.storage_path));
+  }
+  return db.from('repair_jobs').delete().eq('id', jobId).then(unwrap);
 }
 
 export async function advanceJob(jobId: string): Promise<Job | null> {

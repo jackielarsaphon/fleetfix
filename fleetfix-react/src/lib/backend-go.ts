@@ -9,6 +9,7 @@
 
 import type {
   DataSet,
+  EditJobDraft,
   Job,
   NewJobDraft,
   NewPlaceForm,
@@ -179,6 +180,29 @@ export async function createJob(draft: NewJobDraft): Promise<Job> {
     technicians: draft.technicians || [],
   });
   return mapJob(job);
+}
+
+/** แก้ข้อมูลใบงานทั้งชุด (เซิร์ฟเวอร์ทำใน transaction เดียว รวมรายชื่อช่าง) */
+export async function updateJob(jobId: string, draft: EditJobDraft): Promise<Job> {
+  const job = await request<WireJob>('PATCH', `/api/jobs/${jobId}`, {
+    vehicleCode: draft.vehicleCode,
+    symptom: draft.symptom,
+    rootCause: draft.rootCause || '',
+    status: draft.status || '',
+    mileage: draft.mileage ?? null,
+    breakOn: draft.breakOn || '',
+    doneOn: draft.doneOn || '',
+    placeName: draft.placeName || '',
+    reporter: draft.reporter || '',
+    note: draft.note || '',
+    technicians: draft.technicians || [],
+  });
+  return mapJob(job);
+}
+
+/** ลบใบงานถาวร — อะไหล่ ไทม์ไลน์ และรูป (ทั้งแถวและไฟล์) ถูกลบตามไปด้วย */
+export async function deleteJob(jobId: string): Promise<unknown> {
+  return request('DELETE', `/api/jobs/${jobId}`);
 }
 
 /** เลื่อนสถานะไปขั้นถัดไป */

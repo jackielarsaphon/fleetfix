@@ -150,6 +150,21 @@ type NewJobPart struct {
 	PRCode      string  `json:"prCode"`
 }
 
+// EditJob คือข้อมูลใบงานที่แก้ได้ — ส่งมาทั้งชุด (ไม่ใช่แก้ทีละฟิลด์)
+type EditJob struct {
+	VehicleCode string   `json:"vehicleCode"`
+	Symptom     string   `json:"symptom"`
+	RootCause   string   `json:"rootCause"`
+	Status      string   `json:"status"` // ว่าง = คงสถานะเดิม
+	Mileage     *int     `json:"mileage"`
+	BreakOn     string   `json:"breakOn"`
+	DoneOn      string   `json:"doneOn"`
+	PlaceName   string   `json:"placeName"`
+	Reporter    string   `json:"reporter"`
+	Note        string   `json:"note"`
+	Technicians []string `json:"technicians"`
+}
+
 type NewVehicle struct {
 	Code        string `json:"code"`
 	Plate       string `json:"plate"`
@@ -233,6 +248,48 @@ func (n *NewJob) Validate() error {
 		techs = append(techs, t)
 	}
 	n.Technicians = techs
+
+	return nil
+}
+
+// Validate ตัดช่องว่างและตรวจว่าข้อมูลที่จำเป็นครบ
+func (e *EditJob) Validate() error {
+	e.VehicleCode = strings.TrimSpace(e.VehicleCode)
+	e.Symptom = strings.TrimSpace(e.Symptom)
+	e.RootCause = strings.TrimSpace(e.RootCause)
+	e.Status = strings.TrimSpace(e.Status)
+	e.BreakOn = strings.TrimSpace(e.BreakOn)
+	e.DoneOn = strings.TrimSpace(e.DoneOn)
+	e.PlaceName = strings.TrimSpace(e.PlaceName)
+	e.Reporter = strings.TrimSpace(e.Reporter)
+	e.Note = strings.TrimSpace(e.Note)
+
+	if e.VehicleCode == "" {
+		return fmt.Errorf("ต้องระบุ vehicleCode (เบอร์รถ)")
+	}
+	if e.Symptom == "" {
+		return fmt.Errorf("ต้องระบุ symptom (อาการแจ้งซ่อม)")
+	}
+	for _, d := range [][2]string{{"breakOn", e.BreakOn}, {"doneOn", e.DoneOn}} {
+		if d[1] != "" && !isISODate(d[1]) {
+			return fmt.Errorf("%s ต้องอยู่ในรูปแบบ YYYY-MM-DD", d[0])
+		}
+	}
+	if e.Mileage != nil && *e.Mileage < 0 {
+		return fmt.Errorf("mileage ต้องไม่เป็นค่าลบ")
+	}
+
+	techs := make([]string, 0, len(e.Technicians))
+	seen := map[string]bool{}
+	for _, t := range e.Technicians {
+		t = strings.TrimSpace(t)
+		if t == "" || seen[t] {
+			continue
+		}
+		seen[t] = true
+		techs = append(techs, t)
+	}
+	e.Technicians = techs
 
 	return nil
 }

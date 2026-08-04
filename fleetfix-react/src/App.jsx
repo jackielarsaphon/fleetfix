@@ -5,8 +5,10 @@ import * as api from './lib/api';
 import { backendName, isApiDown, isConfigured } from './lib/api';
 import Sidebar from './components/Sidebar.jsx';
 import NewJobModal from './components/NewJobModal.jsx';
+import EditJobModal from './components/EditJobModal.jsx';
 import Notice from './components/Notice.jsx';
 import Dialog from './components/Dialog.jsx';
+import Icon from './components/Icon.jsx';
 import JobListScreen from './screens/JobListScreen.jsx';
 import JobDetailScreen from './screens/JobDetailScreen.jsx';
 import DashboardScreen from './screens/DashboardScreen.jsx';
@@ -31,6 +33,8 @@ export default function App() {
   const [actionError, setActionError] = useState('');
   const [photos, setPhotos] = useState([]);
   const [savedJob, setSavedJob] = useState(null); // ใบงานที่เพิ่งบันทึก — ใช้แสดง pop-up ยืนยัน
+  const [editOpen, setEditOpen] = useState(false); // ฟอร์มแก้ไขใบงาน
+  const [deleteTarget, setDeleteTarget] = useState(null); // ใบงานที่รอยืนยันลบ
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -267,6 +271,8 @@ export default function App() {
               await reloadPhotos(currentJob._id);
               await reload();
             }}
+            onEdit={() => setEditOpen(true)}
+            onDelete={() => setDeleteTarget(currentJob)}
           />
         )}
 
@@ -312,6 +318,81 @@ export default function App() {
           />
         )}
       </main>
+
+      {editOpen && currentJob && (
+        <EditJobModal
+          job={currentJob}
+          vehicles={vehicles}
+          places={places}
+          technicianOptions={technicianOptions}
+          onClose={() => setEditOpen(false)}
+          onSave={(draft) => run(() => api.updateJob(currentJob._id, draft))}
+        />
+      )}
+
+      {deleteTarget && (
+        <Dialog
+          title="ลบใบแจ้งซ่อมนี้?"
+          tone="error"
+          onClose={() => setDeleteTarget(null)}
+          actions={
+            <>
+              <button
+                className="hov-border"
+                onClick={() => setDeleteTarget(null)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #d8d1c4',
+                  borderRadius: 8,
+                  padding: '9px 15px',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={async () => {
+                  const target = deleteTarget;
+                  setDeleteTarget(null);
+                  const ok = await run(() => api.deleteJob(target._id));
+                  if (ok) {
+                    setScreen('list');
+                    setJobIdx(0);
+                  }
+                }}
+                style={{
+                  background: '#b3261e',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 8,
+                  padding: '9px 16px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                }}
+              >
+                <Icon name="trash" size={15} /> ลบถาวร
+              </button>
+            </>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div>
+              <strong style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{deleteTarget.code}</strong> ·{' '}
+              {deleteTarget.vehicle} · {deleteTarget.symptom}
+            </div>
+            <div style={{ color: '#b3261e' }}>
+              จะลบพร้อมกันทั้ง อะไหล่ {deleteTarget.parts.length} รายการ
+              {deleteTarget.photos > 0 && ` · รูป ${deleteTarget.photos} รูป`} · ไทม์ไลน์ทั้งหมด
+            </div>
+            <div style={{ color: '#8a837a', fontSize: 12 }}>เอาคืนไม่ได้ — ถ้าต้องการเก็บประวัติไว้ ให้เปลี่ยนสถานะเป็น "เสร็จแล้ว" แทน</div>
+          </div>
+        </Dialog>
+      )}
 
       {savedJob && (
         <Dialog

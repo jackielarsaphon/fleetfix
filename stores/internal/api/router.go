@@ -21,6 +21,8 @@ type Server struct {
 //	GET    /api/jobs?status=&q=
 //	POST   /api/jobs
 //	GET    /api/jobs/{id}
+//	PATCH  /api/jobs/{id}
+//	DELETE /api/jobs/{id}
 //	POST   /api/jobs/{id}/advance
 //	GET    /api/jobs/{id}/photos
 //	POST   /api/jobs/{id}/photos   (multipart: file, kind, caption)
@@ -42,6 +44,8 @@ func NewRouter(st *store.Store, photos storage.Store, cfg config.Config) http.Ha
 	mux.HandleFunc("GET /api/jobs", s.listJobs)
 	mux.HandleFunc("POST /api/jobs", s.createJob)
 	mux.HandleFunc("GET /api/jobs/{id}", s.getJob)
+	mux.HandleFunc("PATCH /api/jobs/{id}", s.updateJob)
+	mux.HandleFunc("DELETE /api/jobs/{id}", s.deleteJob)
 	mux.HandleFunc("POST /api/jobs/{id}/advance", s.advanceJob)
 
 	mux.HandleFunc("GET /api/jobs/{id}/photos", s.listPhotos)

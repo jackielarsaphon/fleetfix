@@ -62,6 +62,8 @@ go build -o bin/server.exe ./cmd/server
 | GET | `/api/jobs?status=&q=` | รายการใบงาน กรองสถานะ (`new`, `waiting_parts`, `in_progress`, `done`) และคำค้น |
 | GET | `/api/jobs/{id}` | ใบงานหนึ่งใบ พร้อมอะไหล่และไทม์ไลน์ |
 | POST | `/api/jobs` | แจ้งซ่อมใหม่ (สร้างใบงาน + อะไหล่ + ช่าง + PR ใน transaction เดียว) |
+| PATCH | `/api/jobs/{id}` | แก้ข้อมูลใบงานทั้งชุด รวมรายชื่อช่าง (transaction เดียว) |
+| DELETE | `/api/jobs/{id}` | ลบใบงานถาวร — อะไหล่/ไทม์ไลน์/แถวรูป cascade และลบไฟล์รูปตามด้วย |
 | POST | `/api/jobs/{id}/advance` | เลื่อนสถานะไปขั้นถัดไป |
 | GET | `/api/jobs/{id}/photos` | รูปของใบงาน (`before` / `after` / `report`) |
 | POST | `/api/jobs/{id}/photos` | อัปโหลดรูป — `multipart/form-data`: `file`, `kind`, `caption` |

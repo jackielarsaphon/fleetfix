@@ -43,6 +43,8 @@ export default function JobDetailScreen({
   onPartPrChange,
   onUploadPhoto,
   onDeletePhoto,
+  onEdit,
+  onDelete,
 }) {
   const cur = decorate(job);
   const t = totals(job);
@@ -134,6 +136,42 @@ export default function JobDetailScreen({
             </div>
           </div>
           <div style={{ display: 'flex', gap: 8 }}>
+            <button
+              className="hov-danger"
+              onClick={onDelete}
+              title="ลบใบงานนี้ถาวร"
+              style={{
+                background: '#fff',
+                border: '1px solid #d8d1c4',
+                borderRadius: 8,
+                padding: '9px 13px',
+                fontSize: 13,
+                color: '#8a837a',
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+              }}
+            >
+              <Icon name="trash" size={15} /> ลบ
+            </button>
+            <button
+              className="hov-border"
+              onClick={onEdit}
+              style={{
+                background: '#fff',
+                border: '1px solid #d8d1c4',
+                borderRadius: 8,
+                padding: '9px 14px',
+                fontSize: 13,
+                cursor: 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 7,
+              }}
+            >
+              <Icon name="pencil" size={15} /> แก้ไข
+            </button>
             <button
               className="hov-border"
               onClick={() => window.print()}

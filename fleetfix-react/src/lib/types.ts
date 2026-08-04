@@ -188,6 +188,22 @@ export interface NewJobDraft {
   photos?: File[];
 }
 
+/** ข้อมูลใบงานที่แก้ได้ — ส่งมาทั้งชุด (ตรงกับ model.EditJob ฝั่ง Go) */
+export interface EditJobDraft {
+  vehicleCode: string;
+  symptom: string;
+  rootCause: string;
+  /** รหัสสถานะ เช่น waiting_parts — ว่าง = คงสถานะเดิม */
+  status: string;
+  mileage: number | null;
+  breakOn: string;
+  doneOn: string;
+  placeName: string;
+  reporter: string;
+  note: string;
+  technicians: string[];
+}
+
 export interface NewVehicleForm {
   code: string;
   model: string;
@@ -221,6 +237,8 @@ export interface Backend {
   fetchAll(): Promise<DataSet>;
 
   createJob(draft: NewJobDraft): Promise<Job>;
+  updateJob(jobId: string, draft: EditJobDraft): Promise<Job>;
+  deleteJob(jobId: string): Promise<unknown>;
   advanceJob(jobId: string): Promise<Job | null>;
   setPartPr(partId: string, code: string): Promise<unknown>;
 

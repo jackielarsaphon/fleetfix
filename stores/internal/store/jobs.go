@@ -304,6 +304,119 @@ func (s *Store) CreateJob(ctx context.Context, in model.NewJob) (model.Job, erro
 	return s.GetJob(ctx, jobID)
 }
 
+// UpdateJob แก้ข้อมูลใบงานทั้งชุด รวมถึงรายชื่อช่าง (แทนที่ชุดเดิม) ใน transaction เดียว
+func (s *Store) UpdateJob(ctx context.Context, id string, in model.EditJob) (model.Job, error) {
+	tx, err := s.pool.Begin(ctx)
+	if err != nil {
+		return model.Job{}, classify(err)
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+
+	var vehicleID string
+	err = tx.QueryRow(ctx, `select id::text from public.vehicles where code = $1`, in.VehicleCode).Scan(&vehicleID)
+	if errors.Is(err, pgx.ErrNoRows) {
+		return model.Job{}, fmt.Errorf("%w: ไม่พบเบอร์รถ %s", ErrNotFound, in.VehicleCode)
+	}
+	if err != nil {
+		return model.Job{}, classify(err)
+	}
+
+	var placeID *string
+	if in.PlaceName != "" {
+		var pid string
+		switch err := tx.QueryRow(ctx,
+			`select id::text from public.repair_places where name = $1`, in.PlaceName).Scan(&pid); {
+		case err == nil:
+			placeID = &pid
+		case errors.Is(err, pgx.ErrNoRows):
+			// ไม่พบชื่อสถานที่ — ปล่อยว่างไว้
+		default:
+			return model.Job{}, classify(err)
+		}
+	}
+
+	// status ว่าง = คงสถานะเดิม · trigger จัดการวันที่ปิดงานและไทม์ไลน์ให้เอง
+	tag, err := tx.Exec(ctx, `
+		update public.repair_jobs set
+		  vehicle_id = $2::uuid,
+		  place_id   = $3::uuid,
+		  symptom    = $4,
+		  root_cause = nullif($5, ''),
+		  status     = coalesce(nullif($6, ''), status),
+		  mileage    = $7,
+		  break_on   = nullif($8, '')::date,
+		  done_on    = nullif($9, '')::date,
+		  reporter   = nullif($10, ''),
+		  note       = nullif($11, '')
+		where id = $1::uuid`,
+		id, vehicleID, placeID, in.Symptom, in.RootCause, in.Status, in.Mileage,
+		in.BreakOn, in.DoneOn, in.Reporter, in.Note)
+	if err != nil {
+		return model.Job{}, classify(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return model.Job{}, ErrNotFound
+	}
+
+	// แทนที่รายชื่อช่างทั้งชุด
+	if _, err := tx.Exec(ctx, `delete from public.job_technicians where job_id = $1::uuid`, id); err != nil {
+		return model.Job{}, classify(err)
+	}
+	if len(in.Technicians) > 0 {
+		if _, err := tx.Exec(ctx, `
+			insert into public.technicians (name)
+			select unnest($1::text[])
+			on conflict (name) do nothing`, in.Technicians); err != nil {
+			return model.Job{}, classify(err)
+		}
+		if _, err := tx.Exec(ctx, `
+			insert into public.job_technicians (job_id, technician_id)
+			select $1::uuid, t.id
+			  from public.technicians t
+			 where t.name = any($2::text[])
+			on conflict do nothing`, id, in.Technicians); err != nil {
+			return model.Job{}, classify(err)
+		}
+	}
+
+	if err := tx.Commit(ctx); err != nil {
+		return model.Job{}, classify(err)
+	}
+	return s.GetJob(ctx, id)
+}
+
+// DeleteJob ลบใบงานถาวร — อะไหล่ ไทม์ไลน์ และแถวรูปถูกลบตามด้วย cascade
+// คืน path ของไฟล์รูปที่ต้องไปลบในที่เก็บไฟล์ (ฐานข้อมูลลบไฟล์เองไม่ได้)
+func (s *Store) DeleteJob(ctx context.Context, id string) ([]string, error) {
+	rows, err := s.pool.Query(ctx,
+		`select storage_path from public.job_photos where job_id = $1::uuid`, id)
+	if err != nil {
+		return nil, classify(err)
+	}
+	paths := make([]string, 0, 8)
+	for rows.Next() {
+		var p string
+		if err := rows.Scan(&p); err != nil {
+			rows.Close()
+			return nil, classify(err)
+		}
+		paths = append(paths, p)
+	}
+	rows.Close()
+	if err := rows.Err(); err != nil {
+		return nil, classify(err)
+	}
+
+	tag, err := s.pool.Exec(ctx, `delete from public.repair_jobs where id = $1::uuid`, id)
+	if err != nil {
+		return nil, classify(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return nil, ErrNotFound
+	}
+	return paths, nil
+}
+
 // AdvanceJob เลื่อนสถานะไปขั้นถัดไปตามผังใน job_statuses
 // trigger ฝั่งฐานข้อมูลจะลงวันที่ปิดงานและบันทึกไทม์ไลน์ให้เอง
 func (s *Store) AdvanceJob(ctx context.Context, id string) (model.Job, error) {
