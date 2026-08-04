@@ -27,6 +27,8 @@ npm install
 npm run dev                  # http://localhost:5173
 ```
 
+ตรวจชนิดข้อมูลของชั้นเชื่อมต่อด้วย `npm run typecheck`
+
 ถ้า API ไม่ได้รัน แอปจะขึ้นหน้าจอบอกวิธีให้
 API อยู่ที่อื่นก็ตั้ง `VITE_API_URL` ใน `.env.local` (ค่าเริ่มต้น `http://localhost:8080`)
 
@@ -48,8 +50,11 @@ fleetfix-react/
    ├─ constants.js            # สถานะงาน, ลำดับสถานะ, วันที่อ้างอิง
    ├─ data.js                 # ข้อมูลตัวอย่าง (ตอนนี้ใช้เป็นต้นฉบับของ supabase/seed.sql เท่านั้น)
    ├─ utils.js                # คำนวณยอดเงิน, เลข PR, ค้นหา/กรอง
-   ├─ lib/
-   │  └─ api.js               # เรียก Go API + แปลงข้อมูลให้ตรงรูปแบบที่หน้าจอใช้
+   ├─ lib/                    # ชั้นเชื่อมต่อ — เขียนด้วย TypeScript
+   │  ├─ types.ts             # ชนิดข้อมูลกลาง + interface Backend (สะท้อน model.go)
+   │  ├─ backend-go.ts        # คุย Go API (ค่าเริ่มต้น)
+   │  ├─ backend-supabase.ts  # คุย Supabase ตรง (ใช้กับ GitHub Pages)
+   │  └─ api.ts               # เลือก backend ตาม .env และบังคับให้ทั้งสองตัวชนิดตรงกัน
    ├─ components/
    │  ├─ Icon.jsx             # ชุดไอคอน SVG ของระบบ (เส้นสไตล์เดียวกันทั้งหมด)
    │  ├─ Notice.jsx           # หน้าจอแจ้งสถานะ (กำลังโหลด / ยังไม่ apply migration / error)

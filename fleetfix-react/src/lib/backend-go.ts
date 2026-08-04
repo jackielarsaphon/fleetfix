@@ -1,26 +1,45 @@
 // ────────────────────────────────────────────────────────────
-// เรียก Go API ในโฟลเดอร์ ../stores (ไม่ได้ต่อ Supabase ตรงแล้ว)
+// Backend ที่คุย Go API ในโฟลเดอร์ ../stores
 //
-// ข้อดีของการผ่าน API: การสร้างใบงานเป็น transaction เดียวจริง ๆ ฝั่งเซิร์ฟเวอร์
+// ข้อดี: การสร้างใบงานเป็น transaction เดียวจริงฝั่งเซิร์ฟเวอร์
 // และไม่มีกุญแจฐานข้อมูลอยู่ในไฟล์ JS ที่ส่งให้เบราว์เซอร์
 //
-// ชั้นนี้แปลงข้อมูลให้อยู่ในรูปแบบเดิมที่หน้าจอใช้ (status เป็นชื่อไทย,
-// วันที่แบบ dd/mm/yyyy, ชื่อคีย์อะไหล่แบบเดิม) หน้าจอจึงไม่ต้องแก้
-// ฟิลด์ `_id` คือ uuid จริงในฐานข้อมูล ใช้เวลาสั่งแก้ข้อมูล
+// ชนิดข้อมูลที่รับมา (Wire*) ต้องตรงกับ struct ใน stores/internal/model/model.go
 // ────────────────────────────────────────────────────────────
+
+import type {
+  DataSet,
+  Job,
+  NewJobDraft,
+  NewPlaceForm,
+  NewVehicleForm,
+  Part,
+  Photo,
+  PhotoKind,
+  Place,
+  Vehicle,
+  WireJob,
+  WireJobPart,
+  WirePhoto,
+  WirePlace,
+  WireVehicle,
+} from './types';
 
 const BASE = (import.meta.env.VITE_API_URL || 'http://localhost:8080').replace(/\/+$/, '');
 
 export const isConfigured = Boolean(BASE);
 
 /** true เมื่อเรียก API ไม่ติดเลย (เซิร์ฟเวอร์ยังไม่ได้รัน / ผิด origin) */
-export function isApiDown(error) {
-  return error?.name === 'ApiUnreachable';
+export function isApiDown(error: unknown): boolean {
+  return (error as { name?: string } | null)?.name === 'ApiUnreachable';
 }
 
-async function request(method, path, body) {
+type Method = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+
+async function request<T>(method: Method, path: string, body?: unknown): Promise<T> {
   const isForm = body instanceof FormData;
-  let res;
+  let res: Response;
+
   try {
     res = await fetch(BASE + path, {
       method,
@@ -31,31 +50,32 @@ async function request(method, path, body) {
   } catch (cause) {
     const err = new Error(`ติดต่อ API ที่ ${BASE} ไม่ได้`);
     err.name = 'ApiUnreachable';
-    err.cause = cause;
+    (err as Error & { cause?: unknown }).cause = cause;
     throw err;
   }
 
-  if (res.status === 204) return null;
+  if (res.status === 204) return null as T;
 
   const text = await res.text();
-  const data = text ? JSON.parse(text) : null;
+  const data = text ? (JSON.parse(text) as unknown) : null;
 
   if (!res.ok) {
-    throw new Error(data?.error || `${method} ${path} ล้มเหลว (${res.status})`);
+    const message = (data as { error?: string } | null)?.error;
+    throw new Error(message || `${method} ${path} ล้มเหลว (${res.status})`);
   }
-  return data;
+  return data as T;
 }
 
 // ── แปลงข้อมูลจาก API → รูปแบบที่หน้าจอใช้ ───────────────────
 
 /** 2026-05-06 → 06/05/2026 */
-function thaiDate(iso) {
+function thaiDate(iso: string): string {
   if (!iso) return '—';
   const [y, m, d] = iso.split('-');
   return `${d}/${m}/${y}`;
 }
 
-function mapPart(p) {
+function mapPart(p: WireJobPart): Part {
   return {
     _id: p.id,
     name: p.name,
@@ -68,7 +88,7 @@ function mapPart(p) {
   };
 }
 
-function mapJob(j) {
+function mapJob(j: WireJob): Job {
   return {
     _id: j.id,
     code: j.code,
@@ -92,7 +112,7 @@ function mapJob(j) {
   };
 }
 
-function mapVehicle(v) {
+function mapVehicle(v: WireVehicle): Vehicle {
   return {
     _id: v.id,
     code: v.code,
@@ -104,21 +124,27 @@ function mapVehicle(v) {
   };
 }
 
-function mapPlace(p) {
+function mapPlace(p: WirePlace): Place {
+  return { _id: p.id, name: p.name, kind: p.kind || 'ไม่ระบุประเภท' };
+}
+
+function mapPhoto(p: WirePhoto): Photo {
   return {
     _id: p.id,
-    name: p.name,
-    kind: p.kind || 'ไม่ระบุประเภท',
+    jobId: p.jobId,
+    kind: p.kind,
+    caption: p.caption || '',
+    src: BASE + p.url,
   };
 }
 
 // ── อ่านข้อมูล ──────────────────────────────────────────────
 
-export async function fetchAll() {
+export async function fetchAll(): Promise<DataSet> {
   const [jobs, vehicles, places] = await Promise.all([
-    request('GET', '/api/jobs'),
-    request('GET', '/api/vehicles'),
-    request('GET', '/api/places'),
+    request<{ jobs: WireJob[] }>('GET', '/api/jobs'),
+    request<{ vehicles: WireVehicle[] }>('GET', '/api/vehicles'),
+    request<{ places: WirePlace[] }>('GET', '/api/places'),
   ]);
 
   return {
@@ -131,8 +157,8 @@ export async function fetchAll() {
 // ── แก้ข้อมูล ───────────────────────────────────────────────
 
 /** แจ้งซ่อมใหม่ — เซิร์ฟเวอร์สร้างใบงาน อะไหล่ ช่าง และ PR ใน transaction เดียว */
-export async function createJob(draft) {
-  const job = await request('POST', '/api/jobs', {
+export async function createJob(draft: NewJobDraft): Promise<Job> {
+  const job = await request<WireJob>('POST', '/api/jobs', {
     vehicleCode: draft.vehicleCode,
     symptom: draft.symptom,
     breakOn: draft.breakOn || '',
@@ -156,18 +182,18 @@ export async function createJob(draft) {
 }
 
 /** เลื่อนสถานะไปขั้นถัดไป */
-export async function advanceJob(jobId) {
-  return mapJob(await request('POST', `/api/jobs/${jobId}/advance`));
+export async function advanceJob(jobId: string): Promise<Job> {
+  return mapJob(await request<WireJob>('POST', `/api/jobs/${jobId}/advance`));
 }
 
 /** แก้เลข PR ของอะไหล่รายชิ้น (เลข PR ใหม่จะถูกสร้างให้เอง) */
-export async function setPartPr(partId, code) {
+export async function setPartPr(partId: string, code: string): Promise<unknown> {
   return request('PATCH', `/api/parts/${partId}/pr`, { prCode: (code || '').trim() });
 }
 
-export async function createVehicle(form) {
+export async function createVehicle(form: NewVehicleForm): Promise<Vehicle> {
   return mapVehicle(
-    await request('POST', '/api/vehicles', {
+    await request<WireVehicle>('POST', '/api/vehicles', {
       code: form.code,
       plate: form.plate || '',
       brandModel: form.model || '',
@@ -178,9 +204,9 @@ export async function createVehicle(form) {
   );
 }
 
-export async function createPlace(form) {
+export async function createPlace(form: NewPlaceForm): Promise<Place> {
   return mapPlace(
-    await request('POST', '/api/places', {
+    await request<WirePlace>('POST', '/api/places', {
       name: form.name,
       kind: form.kind || '',
     })
@@ -188,37 +214,31 @@ export async function createPlace(form) {
 }
 
 /** เลิกใช้สถานที่ซ่อม — ไม่ลบจริงเพื่อไม่ให้ประวัติใบงานเก่าเสียอ้างอิง */
-export async function deactivatePlace(placeId) {
+export async function deactivatePlace(placeId: string): Promise<unknown> {
   return request('DELETE', `/api/places/${placeId}`);
 }
 
 // ── รูปภาพ ──────────────────────────────────────────────────
 // ไฟล์เก็บที่ฝั่งเซิร์ฟเวอร์ ฐานข้อมูลเก็บแค่ path — ดึงรูปผ่าน /api/photos/{id}
 
-function mapPhoto(p) {
-  return {
-    _id: p.id,
-    jobId: p.jobId,
-    kind: p.kind,
-    caption: p.caption || '',
-    src: BASE + p.url,
-  };
-}
-
-export async function fetchJobPhotos(jobId) {
-  const data = await request('GET', `/api/jobs/${jobId}/photos`);
+export async function fetchJobPhotos(jobId: string): Promise<Photo[]> {
+  const data = await request<{ photos: WirePhoto[] }>('GET', `/api/jobs/${jobId}/photos`);
   return (data?.photos || []).map(mapPhoto);
 }
 
-/** อัปโหลดรูปเข้าใบงาน — kind: 'before' | 'after' | 'report' */
-export async function uploadJobPhoto(jobId, file, kind = 'before', caption = '') {
+export async function uploadJobPhoto(
+  jobId: string,
+  file: File,
+  kind: PhotoKind = 'before',
+  caption = ''
+): Promise<Photo> {
   const form = new FormData();
   form.append('file', file);
   form.append('kind', kind);
   if (caption) form.append('caption', caption);
-  return mapPhoto(await request('POST', `/api/jobs/${jobId}/photos`, form));
+  return mapPhoto(await request<WirePhoto>('POST', `/api/jobs/${jobId}/photos`, form));
 }
 
-export async function deleteJobPhoto(photoId) {
+export async function deleteJobPhoto(photoId: string): Promise<unknown> {
   return request('DELETE', `/api/photos/${photoId}`);
 }

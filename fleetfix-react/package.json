@@ -3,11 +3,12 @@
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "ระบบแจ้งซ่อมรถบริการ (Fleet Fix) — เวอร์ชัน React.js",
+  "description": "ระบบแจ้งซ่อมรถบริการ (Fleet Fix) — เวอร์ชัน React + TypeScript",
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.112.0",
@@ -16,6 +17,7 @@
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^7.0.2",
     "vite": "^6.0.7"
   }
 }

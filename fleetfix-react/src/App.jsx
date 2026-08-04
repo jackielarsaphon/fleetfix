@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ORDER } from './constants.js';
 import { decorate, filterJobs, fmt, totals } from './utils.js';
-import * as api from './lib/api.js';
-import { backendName, isApiDown, isConfigured } from './lib/api.js';
+import * as api from './lib/api';
+import { backendName, isApiDown, isConfigured } from './lib/api';
 import Sidebar from './components/Sidebar.jsx';
 import NewJobModal from './components/NewJobModal.jsx';
 import Notice from './components/Notice.jsx';
