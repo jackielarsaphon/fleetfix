@@ -198,6 +198,25 @@ type PartPR struct {
 	PRCode string `json:"prCode"`
 }
 
+// PartInput ใช้ทั้งตอนเพิ่มและตอนแก้อะไหล่ในใบงาน
+type PartInput struct {
+	Name        string  `json:"name"`
+	PartNo      string  `json:"partNo"`
+	Qty         float64 `json:"qty"`
+	Unit        string  `json:"unit"`
+	UnitPrice   float64 `json:"unitPrice"`
+	DiscountPct float64 `json:"discountPct"`
+	PRCode      string  `json:"prCode"`
+}
+
+// EditPlace คือข้อมูลสถานที่ซ่อมที่แก้ได้
+// IsActive เป็น pointer เพื่อแยก "ไม่ได้ส่งมา" (คงค่าเดิม) จาก false (เลิกใช้งาน)
+type EditPlace struct {
+	Name     string `json:"name"`
+	Kind     string `json:"kind"`
+	IsActive *bool  `json:"isActive"`
+}
+
 // ── ตรวจความถูกต้อง ─────────────────────────────────────────
 
 // Validate ตัดช่องว่างและตรวจว่าข้อมูลที่จำเป็นครบ
@@ -342,6 +361,41 @@ func (n *NewPlace) Validate() error {
 	n.Address = strings.TrimSpace(n.Address)
 
 	if n.Name == "" {
+		return fmt.Errorf("ต้องระบุ name (ชื่อสถานที่ซ่อม)")
+	}
+	return nil
+}
+
+// Validate ตัดช่องว่าง เติมค่าเริ่มต้น และตรวจตัวเลขให้อยู่ในช่วงที่ถูกต้อง
+func (p *PartInput) Validate() error {
+	p.Name = strings.TrimSpace(p.Name)
+	p.PartNo = strings.TrimSpace(p.PartNo)
+	p.Unit = strings.TrimSpace(p.Unit)
+	p.PRCode = strings.TrimSpace(p.PRCode)
+
+	if p.Name == "" {
+		return fmt.Errorf("ต้องระบุ name (ชื่ออะไหล่หรือค่าแรง)")
+	}
+	if p.Qty <= 0 {
+		p.Qty = 1
+	}
+	if p.Unit == "" {
+		p.Unit = "ชิ้น"
+	}
+	if p.UnitPrice < 0 {
+		return fmt.Errorf("unitPrice ต้องไม่เป็นค่าลบ")
+	}
+	if p.DiscountPct < 0 || p.DiscountPct > 100 {
+		return fmt.Errorf("discountPct ต้องอยู่ระหว่าง 0–100")
+	}
+	return nil
+}
+
+func (e *EditPlace) Validate() error {
+	e.Name = strings.TrimSpace(e.Name)
+	e.Kind = strings.TrimSpace(e.Kind)
+
+	if e.Name == "" {
 		return fmt.Errorf("ต้องระบุ name (ชื่อสถานที่ซ่อม)")
 	}
 	return nil

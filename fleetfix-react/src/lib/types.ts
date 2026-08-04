@@ -218,9 +218,25 @@ export interface EditVehicleForm extends NewVehicleForm {
   isActive?: boolean;
 }
 
+/** ใช้ทั้งตอนเพิ่มและแก้อะไหล่ในใบงาน (ตรงกับ model.PartInput ฝั่ง Go) */
+export interface PartInput {
+  name: string;
+  partNo: string;
+  qty: number;
+  unit: string;
+  unitPrice: number;
+  discountPct: number;
+  prCode: string;
+}
+
 export interface NewPlaceForm {
   name: string;
   kind: string;
+}
+
+/** isActive ไม่ส่ง = คงค่าเดิม, false = เลิกใช้งาน, true = เปิดใช้อีกครั้ง */
+export interface EditPlaceForm extends NewPlaceForm {
+  isActive?: boolean;
 }
 
 // ── 4. สัญญาที่ backend ทุกตัวต้องทำตาม ─────────────────────
@@ -247,10 +263,15 @@ export interface Backend {
   advanceJob(jobId: string): Promise<Job | null>;
   setPartPr(partId: string, code: string): Promise<unknown>;
 
+  createPart(jobId: string, input: PartInput): Promise<Part>;
+  updatePart(partId: string, input: PartInput): Promise<Part>;
+  deletePart(partId: string): Promise<unknown>;
+
   createVehicle(form: NewVehicleForm): Promise<Vehicle>;
   updateVehicle(vehicleId: string, form: EditVehicleForm): Promise<Vehicle>;
   deleteVehicle(vehicleId: string): Promise<unknown>;
   createPlace(form: NewPlaceForm): Promise<Place>;
+  updatePlace(placeId: string, form: EditPlaceForm): Promise<Place>;
   deactivatePlace(placeId: string): Promise<unknown>;
 
   fetchJobPhotos(jobId: string): Promise<Photo[]>;

@@ -127,6 +127,67 @@ func (s *Server) advanceJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, job)
 }
 
+// ── อะไหล่ในใบงาน ───────────────────────────────────────────
+
+func (s *Server) createPart(w http.ResponseWriter, r *http.Request) {
+	jobID, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	var in model.PartInput
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, r, badRequest("%v", err))
+		return
+	}
+	part, err := s.store.CreatePart(r.Context(), jobID, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusCreated, part)
+}
+
+func (s *Server) updatePart(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	var in model.PartInput
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, r, badRequest("%v", err))
+		return
+	}
+	part, err := s.store.UpdatePart(r.Context(), id, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, part)
+}
+
+func (s *Server) deletePart(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := s.store.DeletePart(r.Context(), id); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 func (s *Server) setPartPR(w http.ResponseWriter, r *http.Request) {
 	id, err := pathID(r)
 	if err != nil {
@@ -239,6 +300,29 @@ func (s *Server) createPlace(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	writeJSON(w, http.StatusCreated, p)
+}
+
+func (s *Server) updatePlace(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	var in model.EditPlace
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, r, badRequest("%v", err))
+		return
+	}
+	p, err := s.store.UpdatePlace(r.Context(), id, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, p)
 }
 
 func (s *Server) deactivatePlace(w http.ResponseWriter, r *http.Request) {

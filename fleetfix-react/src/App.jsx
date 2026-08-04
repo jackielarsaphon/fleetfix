@@ -261,7 +261,9 @@ export default function App() {
             photos={photos}
             onBack={() => setScreen('list')}
             onAdvance={() => run(() => api.advanceJob(currentJob._id))}
-            onPartPrChange={(partIdx, value) => run(() => api.setPartPr(currentJob.parts[partIdx]._id, value))}
+            onAddPart={(input) => run(() => api.createPart(currentJob._id, input))}
+            onUpdatePart={(partId, input) => run(() => api.updatePart(partId, input))}
+            onDeletePart={(partId) => run(() => api.deletePart(partId))}
             onUploadPhoto={async (file, kind) => {
               await api.uploadJobPhoto(currentJob._id, file, kind);
               await reloadPhotos(currentJob._id);
@@ -317,6 +319,7 @@ export default function App() {
             places={places}
             jobs={jobs}
             onAdd={(form) => run(() => api.createPlace(form))}
+            onUpdate={(id, form) => run(() => api.updatePlace(id, form))}
             onRemove={(place) => run(() => api.deactivatePlace(place._id))}
           />
         )}

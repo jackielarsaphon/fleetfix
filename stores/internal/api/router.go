@@ -28,6 +28,9 @@ type Server struct {
 //	POST   /api/jobs/{id}/photos   (multipart: file, kind, caption)
 //	GET    /api/photos/{id}        (ตัวไฟล์รูป)
 //	DELETE /api/photos/{id}
+//	POST   /api/jobs/{id}/parts
+//	PATCH  /api/parts/{id}
+//	DELETE /api/parts/{id}
 //	PATCH  /api/parts/{id}/pr
 //	GET    /api/vehicles
 //	POST   /api/vehicles
@@ -55,6 +58,9 @@ func NewRouter(st *store.Store, photos storage.Store, cfg config.Config) http.Ha
 	mux.HandleFunc("GET /api/photos/{id}", s.servePhoto)
 	mux.HandleFunc("DELETE /api/photos/{id}", s.deletePhoto)
 
+	mux.HandleFunc("POST /api/jobs/{id}/parts", s.createPart)
+	mux.HandleFunc("PATCH /api/parts/{id}", s.updatePart)
+	mux.HandleFunc("DELETE /api/parts/{id}", s.deletePart)
 	mux.HandleFunc("PATCH /api/parts/{id}/pr", s.setPartPR)
 
 	mux.HandleFunc("GET /api/vehicles", s.listVehicles)
@@ -64,6 +70,7 @@ func NewRouter(st *store.Store, photos storage.Store, cfg config.Config) http.Ha
 
 	mux.HandleFunc("GET /api/places", s.listPlaces)
 	mux.HandleFunc("POST /api/places", s.createPlace)
+	mux.HandleFunc("PATCH /api/places/{id}", s.updatePlace)
 	mux.HandleFunc("DELETE /api/places/{id}", s.deactivatePlace)
 
 	mux.HandleFunc("GET /api/dashboard", s.dashboard)

@@ -10,12 +10,14 @@
 import type {
   DataSet,
   EditJobDraft,
+  EditPlaceForm,
   EditVehicleForm,
   Job,
   NewJobDraft,
   NewPlaceForm,
   NewVehicleForm,
   Part,
+  PartInput,
   Photo,
   PhotoKind,
   Place,
@@ -216,6 +218,32 @@ export async function setPartPr(partId: string, code: string): Promise<unknown> 
   return request('PATCH', `/api/parts/${partId}/pr`, { prCode: (code || '').trim() });
 }
 
+// ── อะไหล่ในใบงาน ───────────────────────────────────────────
+
+function partBody(input: PartInput) {
+  return {
+    name: input.name,
+    partNo: input.partNo || '',
+    qty: input.qty,
+    unit: input.unit || '',
+    unitPrice: input.unitPrice,
+    discountPct: input.discountPct,
+    prCode: input.prCode || '',
+  };
+}
+
+export async function createPart(jobId: string, input: PartInput): Promise<Part> {
+  return mapPart(await request<WireJobPart>('POST', `/api/jobs/${jobId}/parts`, partBody(input)));
+}
+
+export async function updatePart(partId: string, input: PartInput): Promise<Part> {
+  return mapPart(await request<WireJobPart>('PATCH', `/api/parts/${partId}`, partBody(input)));
+}
+
+export async function deletePart(partId: string): Promise<unknown> {
+  return request('DELETE', `/api/parts/${partId}`);
+}
+
 export async function createVehicle(form: NewVehicleForm): Promise<Vehicle> {
   return mapVehicle(
     await request<WireVehicle>('POST', '/api/vehicles', {
@@ -253,6 +281,16 @@ export async function createPlace(form: NewPlaceForm): Promise<Place> {
     await request<WirePlace>('POST', '/api/places', {
       name: form.name,
       kind: form.kind || '',
+    })
+  );
+}
+
+export async function updatePlace(placeId: string, form: EditPlaceForm): Promise<Place> {
+  return mapPlace(
+    await request<WirePlace>('PATCH', `/api/places/${placeId}`, {
+      name: form.name,
+      kind: form.kind || '',
+      isActive: form.isActive ?? null,
     })
   );
 }

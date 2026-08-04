@@ -4,6 +4,7 @@ import { chipStyle, decorate, fmt, prList, totals } from '../utils.js';
 import ImageSlot from '../components/ImageSlot.jsx';
 import Icon from '../components/Icon.jsx';
 import Lightbox from '../components/Lightbox.jsx';
+import PartsTable from '../components/PartsTable.jsx';
 
 const TH = { padding: '9px 14px', fontSize: 11, fontWeight: 600, color: '#6f6860', borderBottom: '1px solid #efece4' };
 const CARD = { background: '#fff', border: '1px solid #ded8cc', borderRadius: 12 };
@@ -40,11 +41,13 @@ export default function JobDetailScreen({
   photos = [],
   onBack,
   onAdvance,
-  onPartPrChange,
   onUploadPhoto,
   onDeletePhoto,
   onEdit,
   onDelete,
+  onAddPart,
+  onUpdatePart,
+  onDeletePart,
 }) {
   const cur = decorate(job);
   const t = totals(job);
@@ -215,76 +218,13 @@ export default function JobDetailScreen({
       <div style={{ padding: '22px 28px 44px', display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 320px', gap: 18, alignItems: 'start' }}>
         <div style={{ display: 'flex', flexDirection: 'column', gap: 16, minWidth: 0 }}>
           <section style={{ ...CARD, overflow: 'hidden' }}>
-            <div style={{ padding: '13px 16px', borderBottom: '1px solid #efece4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ padding: '13px 16px', borderBottom: '1px solid #efece4' }}>
               <h2 style={{ margin: 0, fontSize: '14.5px', fontWeight: 600 }}>รายการอะไหล่และค่าแรง</h2>
-              <button
-                className="hov-border"
-                style={{
-                  background: '#f6f4ef',
-                  border: '1px solid #e2ddd2',
-                  borderRadius: 7,
-                  padding: '6px 11px',
-                  fontSize: 12,
-                  cursor: 'pointer',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 6,
-                }}
-              >
-                <Icon name="plus" size={13} strokeWidth={2.1} /> เพิ่มรายการ
-              </button>
+              <div style={{ fontSize: '11.5px', color: '#8a837a', marginTop: 3 }}>
+                กด "แก้" ที่แถวเพื่อแก้จำนวน ราคา ส่วนลด หรือเลข PR · ยอดรวมด้านล่างอัปเดตตามทันที
+              </div>
             </div>
-            <table style={{ width: '100%', fontSize: '12.5px' }}>
-              <thead>
-                <tr style={{ background: '#faf8f4', textAlign: 'left' }}>
-                  <th style={TH}>รายการ</th>
-                  <th style={TH}>Part number</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>จำนวน</th>
-                  <th style={TH}>หน่วย</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>ราคา/หน่วย</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>ส่วนลด</th>
-                  <th style={TH}>เลข PR</th>
-                  <th style={{ ...TH, textAlign: 'right' }}>รวม</th>
-                </tr>
-              </thead>
-              <tbody>
-                {job.parts.map((p, k) => {
-                  const gross = p.qty * p.unitPrice;
-                  const d = (gross * (p.disc || 0)) / 100;
-                  return (
-                    <tr key={`${p.partNo}-${k}`} style={{ borderBottom: '1px solid #f2efe8' }}>
-                      <td style={{ padding: '10px 14px' }}>{p.name}</td>
-                      <td style={{ padding: '10px 14px', fontFamily: "'IBM Plex Mono', monospace", fontSize: '11.5px', color: '#4b453e' }}>{p.partNo}</td>
-                      <td style={{ padding: 10, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{p.qty}</td>
-                      <td style={{ padding: 10, color: '#6f6860' }}>{p.unit}</td>
-                      <td style={{ padding: 10, textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{fmt(p.unitPrice)}</td>
-                      <td style={{ padding: 10, textAlign: 'right', fontVariantNumeric: 'tabular-nums', color: '#b45309' }}>
-                        {p.disc ? `${p.disc}%` : '—'}
-                      </td>
-                      <td style={{ padding: '7px 10px' }}>
-                        <input
-                          value={p.pr || ''}
-                          onChange={(e) => onPartPrChange(k, e.target.value)}
-                          placeholder="ยังไม่ออก PR"
-                          style={{
-                            width: 118,
-                            padding: '6px 8px',
-                            border: '1px solid #e2ddd2',
-                            borderRadius: 6,
-                            fontFamily: "'IBM Plex Mono', monospace",
-                            fontSize: '11.5px',
-                            background: '#fff',
-                          }}
-                        />
-                      </td>
-                      <td style={{ padding: '10px 14px', textAlign: 'right', fontVariantNumeric: 'tabular-nums', fontWeight: 600 }}>
-                        {fmt(gross - d)}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
+            <PartsTable parts={job.parts} onAdd={onAddPart} onUpdate={onUpdatePart} onDelete={onDeletePart} />
             <div style={{ display: 'flex', justifyContent: 'flex-end', padding: '14px 14px 16px', background: '#faf8f4', borderTop: '1px solid #efece4' }}>
               <div style={{ width: 280, display: 'flex', flexDirection: 'column', gap: 7, fontSize: '12.5px' }}>
                 <div style={ROW}>

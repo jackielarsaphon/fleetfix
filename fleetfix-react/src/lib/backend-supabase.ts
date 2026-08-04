@@ -14,12 +14,14 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   DataSet,
   EditJobDraft,
+  EditPlaceForm,
   EditVehicleForm,
   Job,
   NewJobDraft,
   NewPlaceForm,
   NewVehicleForm,
   Part,
+  PartInput,
   Photo,
   PhotoKind,
   Place,
@@ -379,6 +381,73 @@ export async function setPartPr(partId: string, code: string): Promise<unknown> 
   return db.from('job_parts').update({ pr_id: prId }).eq('id', partId).then(unwrap);
 }
 
+// ── อะไหล่ในใบงาน ───────────────────────────────────────────
+
+/** อ่านอะไหล่รายชิ้นกลับมา (ใช้ตอบหลังเพิ่ม/แก้) */
+async function readPart(partId: string): Promise<Part> {
+  const rows = (await db.from('job_parts').select(PART_COLUMNS).eq('id', partId).limit(1).then(unwrap)) as PartRow[];
+  const row = rows[0];
+  if (!row) throw new Error('ไม่พบรายการอะไหล่นี้');
+  return mapPart(row);
+}
+
+export async function createPart(jobId: string, input: PartInput): Promise<Part> {
+  const prId = await ensurePurchaseRequest(input.prCode);
+
+  // line_no ต่อท้ายรายการที่มีอยู่ของใบงานนี้
+  const last = (await db
+    .from('job_parts')
+    .select('line_no')
+    .eq('job_id', jobId)
+    .order('line_no', { ascending: false })
+    .limit(1)
+    .then(unwrap)) as { line_no: number }[];
+
+  const rows = (await db
+    .from('job_parts')
+    .insert({
+      job_id: jobId,
+      line_no: (last[0]?.line_no ?? 0) + 1,
+      name: input.name,
+      part_no: input.partNo || null,
+      qty: input.qty,
+      unit: input.unit || 'ชิ้น',
+      unit_price: input.unitPrice,
+      discount_pct: input.discountPct,
+      pr_id: prId,
+    })
+    .select('id')
+    .then(unwrap)) as { id: string }[];
+
+  const id = rows[0]?.id;
+  if (!id) throw new Error('เพิ่มรายการอะไหล่ไม่สำเร็จ');
+  return readPart(id);
+}
+
+export async function updatePart(partId: string, input: PartInput): Promise<Part> {
+  const prId = await ensurePurchaseRequest(input.prCode);
+
+  await db
+    .from('job_parts')
+    .update({
+      name: input.name,
+      part_no: input.partNo || null,
+      qty: input.qty,
+      unit: input.unit || 'ชิ้น',
+      unit_price: input.unitPrice,
+      discount_pct: input.discountPct,
+      pr_id: prId,
+    })
+    .eq('id', partId)
+    .then(unwrap);
+
+  return readPart(partId);
+}
+
+export async function deletePart(partId: string): Promise<unknown> {
+  return db.from('job_parts').delete().eq('id', partId).then(unwrap);
+}
+
 export async function createVehicle(form: NewVehicleForm): Promise<Vehicle> {
   const rows = (await db
     .from('vehicles')
@@ -437,6 +506,21 @@ export async function createPlace(form: NewPlaceForm): Promise<Place> {
     .then(unwrap)) as PlaceRow[];
   const row = rows[0];
   if (!row) throw new Error('เพิ่มสถานที่ซ่อมไม่สำเร็จ');
+  return mapPlace(row);
+}
+
+export async function updatePlace(placeId: string, form: EditPlaceForm): Promise<Place> {
+  const patch: Record<string, unknown> = { name: form.name, kind: form.kind || null };
+  if (form.isActive !== undefined) patch.is_active = form.isActive;
+
+  const rows = (await db
+    .from('repair_places')
+    .update(patch)
+    .eq('id', placeId)
+    .select('id, name, kind')
+    .then(unwrap)) as PlaceRow[];
+  const row = rows[0];
+  if (!row) throw new Error('ไม่พบสถานที่ซ่อมนี้');
   return mapPlace(row);
 }
 

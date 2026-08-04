@@ -7,7 +7,21 @@ const LABEL = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, 
 
 const EMPTY = { name: '', kind: '' };
 
-export default function PlacesScreen({ places, jobs, onAdd, onRemove }) {
+const ROW_BTN = {
+  background: '#fff',
+  border: '1px solid #e2ddd2',
+  borderRadius: 7,
+  padding: '6px 10px',
+  fontSize: 12,
+  color: '#6f6860',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+};
+
+export default function PlacesScreen({ places, jobs, onAdd, onUpdate, onRemove }) {
+  const [editing, setEditing] = useState(null); // สถานที่ที่กำลังแก้ (null = เพิ่มใหม่)
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -17,20 +31,34 @@ export default function PlacesScreen({ places, jobs, onAdd, onRemove }) {
     setError('');
   }
 
+  function startEdit(place) {
+    setEditing(place);
+    setForm({ name: place.name, kind: place.kind === 'ไม่ระบุประเภท' ? '' : place.kind });
+    setError('');
+  }
+
+  function cancelEdit() {
+    setEditing(null);
+    setForm(EMPTY);
+    setError('');
+  }
+
   async function save() {
     const name = form.name.trim();
     if (!name) return setError('กรุณากรอกชื่อสถานที่ซ่อม');
-    if (places.some((p) => p.name.toLowerCase() === name.toLowerCase())) return setError('สถานที่นี้มีอยู่ในระบบแล้ว');
+
+    const clash = places.some(
+      (p) => p.name.toLowerCase() === name.toLowerCase() && p._id !== editing?._id
+    );
+    if (clash) return setError('สถานที่นี้มีอยู่ในระบบแล้ว');
+
+    const payload = { name, kind: form.kind.trim() || 'ไม่ระบุประเภท' };
 
     setSaving(true);
     try {
-      const ok = await onAdd({
-        name,
-        kind: form.kind.trim() || 'ไม่ระบุประเภท',
-      });
+      const ok = editing ? await onUpdate(editing._id, payload) : await onAdd(payload);
       if (ok === false) return;
-      setForm(EMPTY);
-      setError('');
+      cancelEdit();
     } finally {
       setSaving(false);
     }
@@ -71,26 +99,25 @@ export default function PlacesScreen({ places, jobs, onAdd, onRemove }) {
                     <td style={{ padding: '12px 14px', fontSize: 12, color: '#6f6860' }}>
                       {used ? `ใช้ในใบงาน ${used} ใบ` : 'ยังไม่มีใบงาน'}
                     </td>
-                    <td style={{ padding: '12px 14px', textAlign: 'right' }}>
-                      <button
-                        className="hov-danger"
-                        onClick={() => onRemove(p)}
-                        title="เลิกใช้สถานที่นี้ (ประวัติใบงานเดิมยังอยู่)"
-                        style={{
-                          background: '#fff',
-                          border: '1px solid #e2ddd2',
-                          borderRadius: 7,
-                          padding: '6px 11px',
-                          fontSize: 12,
-                          color: '#8a837a',
-                          cursor: 'pointer',
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: 6,
-                        }}
-                      >
-                        <Icon name="trash" size={13} /> ลบ
-                      </button>
+                    <td style={{ padding: '12px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                      <div style={{ display: 'inline-flex', gap: 6 }}>
+                        <button
+                          className="hov-border"
+                          onClick={() => startEdit(p)}
+                          title="แก้ชื่อหรือประเภทของสถานที่นี้"
+                          style={ROW_BTN}
+                        >
+                          <Icon name="pencil" size={13} /> แก้ไข
+                        </button>
+                        <button
+                          className="hov-danger"
+                          onClick={() => onRemove(p)}
+                          title="เลิกใช้สถานที่นี้ (ประวัติใบงานเดิมยังอยู่)"
+                          style={ROW_BTN}
+                        >
+                          <Icon name="trash" size={13} /> เลิกใช้
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -110,7 +137,10 @@ export default function PlacesScreen({ places, jobs, onAdd, onRemove }) {
             gap: 13,
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '14.5px', fontWeight: 600 }}>เพิ่มสถานที่ซ่อม</h2>
+          <h2 style={{ margin: 0, fontSize: '14.5px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 8 }}>
+            <Icon name={editing ? 'pencil' : 'plus'} size={15} style={{ color: '#b45309' }} />
+            {editing ? `แก้ไข ${editing.name}` : 'เพิ่มสถานที่ซ่อม'}
+          </h2>
           {error && (
             <div
               style={{
@@ -153,8 +183,25 @@ export default function PlacesScreen({ places, jobs, onAdd, onRemove }) {
               gap: 7,
             }}
           >
-            <Icon name="check" size={15} strokeWidth={2.1} /> {saving ? 'กำลังบันทึก...' : 'บันทึกสถานที่ซ่อม'}
+            <Icon name="check" size={15} strokeWidth={2.1} />{' '}
+            {saving ? 'กำลังบันทึก...' : editing ? 'บันทึกการแก้ไข' : 'บันทึกสถานที่ซ่อม'}
           </button>
+          {editing && (
+            <button
+              className="hov-border"
+              onClick={cancelEdit}
+              style={{
+                background: '#fff',
+                border: '1px solid #d8d1c4',
+                borderRadius: 8,
+                padding: '9px 16px',
+                fontSize: 13,
+                cursor: 'pointer',
+              }}
+            >
+              ยกเลิกการแก้ไข
+            </button>
+          )}
         </section>
       </div>
     </div>

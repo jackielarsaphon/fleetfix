@@ -62,6 +62,28 @@ func (s *Store) CreatePlace(ctx context.Context, in model.NewPlace) (model.Place
 	return p, nil
 }
 
+// UpdatePlace แก้ชื่อและประเภทสถานที่ซ่อม (IsActive = nil คงค่าเดิม)
+func (s *Store) UpdatePlace(ctx context.Context, id string, in model.EditPlace) (model.Place, error) {
+	tag, err := s.pool.Exec(ctx, `
+		update public.repair_places set
+		  name      = $2,
+		  kind      = nullif($3, ''),
+		  is_active = coalesce($4, is_active)
+		where id = $1::uuid`, id, in.Name, in.Kind, in.IsActive)
+	if err != nil {
+		return model.Place{}, classify(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return model.Place{}, ErrNotFound
+	}
+
+	p, err := scanPlace(s.pool.QueryRow(ctx, placeSelect+` where p.id = $1::uuid`, id))
+	if err != nil {
+		return model.Place{}, classify(err)
+	}
+	return p, nil
+}
+
 // DeactivatePlace เลิกใช้สถานที่ซ่อม (ไม่ลบจริง เพื่อไม่ให้ประวัติใบงานเก่าเสียอ้างอิง)
 func (s *Store) DeactivatePlace(ctx context.Context, id string) error {
 	tag, err := s.pool.Exec(ctx,

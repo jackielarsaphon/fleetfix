@@ -31,10 +31,14 @@ export const updateJob = backend.updateJob;
 export const deleteJob = backend.deleteJob;
 export const advanceJob = backend.advanceJob;
 export const setPartPr = backend.setPartPr;
+export const createPart = backend.createPart;
+export const updatePart = backend.updatePart;
+export const deletePart = backend.deletePart;
 export const createVehicle = backend.createVehicle;
 export const updateVehicle = backend.updateVehicle;
 export const deleteVehicle = backend.deleteVehicle;
 export const createPlace = backend.createPlace;
+export const updatePlace = backend.updatePlace;
 export const deactivatePlace = backend.deactivatePlace;
 export const fetchJobPhotos = backend.fetchJobPhotos;
 export const uploadJobPhoto = backend.uploadJobPhoto;
@@ -44,12 +48,14 @@ export type {
   Backend,
   DataSet,
   EditJobDraft,
+  EditPlaceForm,
   EditVehicleForm,
   Job,
   NewJobDraft,
   NewPlaceForm,
   NewVehicleForm,
   Part,
+  PartInput,
   Photo,
   PhotoKind,
   Place,
