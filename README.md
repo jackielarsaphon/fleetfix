@@ -1,98 +1,56 @@
-# vinext-starter
+# ระบบแจ้งซ่อมรถบริการ (Fleet Fix)
 
-A clean full-stack starter running on
-[vinext](https://github.com/cloudflare/vinext), with optional Cloudflare D1 and
-Drizzle support.
+ระบบบันทึกงานซ่อมรถของฝ่ายบริการยานยนต์ — แจ้งซ่อม ติดตามสถานะ คุมค่าอะไหล่ และเก็บรูปก่อน/หลังซ่อม
 
-## Prerequisites
+**เดโมออนไลน์:** https://jackielarsaphon.github.io/fleetfix/
 
-- Node.js `>=22.13.0`
+## โครงสร้าง
 
-## Quick Start
+| โฟลเดอร์ | คืออะไร |
+| --- | --- |
+| [fleetfix-react](fleetfix-react/) | หน้าเว็บ React (Vite) — 6 หน้าจอ พร้อมชุดไอคอน SVG ของตัวเอง |
+| [stores](stores/) | HTTP API ภาษา Go ต่อ Postgres ตรงด้วย pgx — ได้ transaction จริงตอนสร้างใบงาน |
+| [fleetfix-react/supabase](fleetfix-react/supabase/) | migration + seed ของฐานข้อมูล (12 ตาราง, 6 view, trigger, RLS) |
+
+## เลือก backend ได้ 2 แบบ
+
+หน้าเว็บอ่าน/เขียนข้อมูลได้ 2 ทาง สลับด้วยค่าใน `.env` โดยไม่ต้องแก้โค้ดหน้าจอ
+
+```
+โหมดพัฒนา   เบราว์เซอร์ → React → HTTP → Go API → Postgres (Supabase)
+โหมด Pages  เบราว์เซอร์ → React ─────────────────→ Supabase (publishable key)
+```
+
+- **ผ่าน Go API** (ค่าเริ่มต้น) — รหัสผ่านฐานข้อมูลอยู่ฝั่งเซิร์ฟเวอร์เท่านั้น
+  และการสร้างใบงาน + อะไหล่ + ช่าง + PR เป็น transaction เดียว
+- **ต่อ Supabase ตรง** — ใช้ตอน deploy ขึ้น GitHub Pages ที่รันเซิร์ฟเวอร์ไม่ได้
+  ตั้ง `VITE_SUPABASE_URL` + `VITE_SUPABASE_PUBLISHABLE_KEY` แล้วแอปจะสลับให้เอง
+
+> ⚠️ เดโมบน Pages เปิดให้ทุกคนแก้ข้อมูลได้ เพราะ RLS ของระบบนี้ตั้งให้ role `anon` เขียนได้
+> และไม่มีระบบล็อกอิน — ใช้กับข้อมูลจริงที่สำคัญควรใช้โหมด Go API และเพิ่ม auth ก่อน
+
+## เริ่มใช้งานในเครื่อง
 
 ```bash
+# 1) ฐานข้อมูล — รัน migration ครั้งเดียว (ดู fleetfix-react/supabase/README.md)
+
+# 2) API
+cd stores
+cp .env.example .env      # ใส่ DATABASE_URL จาก Supabase → ปุ่ม Connect → แท็บ ORMs
+./run.ps1                 # http://localhost:8080
+
+# 3) หน้าเว็บ
+cd fleetfix-react
 npm install
-npm run dev
-npm run build
+npm run dev               # http://localhost:5173
 ```
 
-This starter does not use `wrangler.jsonc`.
+## สิ่งที่ทำได้
 
-## Included Shape
+- รายการงานซ่อม 3 มุมมอง (ตาราง / การ์ด / คิวตามสถานะ) พร้อมค้นหาและกรองสถานะ
+- ใบงานเลื่อนสถานะตามผังใน `job_statuses` — ไทม์ไลน์บันทึกอัตโนมัติด้วย trigger
+- คิดยอดอะไหล่และค่าแรง หักส่วนลด (ฐานข้อมูลคำนวณด้วย generated column ตรงกับที่หน้าเว็บคำนวณ)
+- แนบรูปก่อน/หลังซ่อม คลิกดูเต็มจอ เลื่อนดูรูปอื่นได้
+- ทะเบียนรถพร้อมประวัติซ่อมรายคัน · สถานที่ซ่อม · แดชบอร์ด KPI และกราฟค่าซ่อมรายเดือน
 
-- edit site code under `app/`
-- `.openai/hosting.json` declares optional Sites D1 and R2 bindings
-- `vite.config.ts` simulates declared bindings for local development
-- `db/schema.ts` starts intentionally empty
-- `examples/d1/` contains an optional D1 example surface
-- `drizzle.config.ts` supports local migration generation when needed
-
-## Workspace Auth Headers
-
-OpenAI workspace sites can read the current user's email from
-`oai-authenticated-user-email`.
-
-SIWC-authenticated workspace sites may also receive
-`oai-authenticated-user-full-name` when the user's SIWC profile has a non-empty
-`name` claim. The full-name value is percent-encoded UTF-8 and is accompanied by
-`oai-authenticated-user-full-name-encoding: percent-encoded-utf-8`.
-
-Treat the full name as optional and fall back to email when it is absent:
-
-```tsx
-import { headers } from "next/headers";
-
-export default async function Home() {
-  const requestHeaders = await headers();
-  const email = requestHeaders.get("oai-authenticated-user-email");
-  const encodedFullName = requestHeaders.get("oai-authenticated-user-full-name");
-  const fullName =
-    encodedFullName &&
-    requestHeaders.get("oai-authenticated-user-full-name-encoding") ===
-      "percent-encoded-utf-8"
-      ? decodeURIComponent(encodedFullName)
-      : null;
-
-  const displayName = fullName ?? email;
-  // ...
-}
-```
-
-## Optional Dispatch-Owned ChatGPT Sign-In
-
-Import the ready-to-use helpers from `app/chatgpt-auth.ts` when the site needs
-optional or required ChatGPT sign-in:
-
-- Use `getChatGPTUser()` for optional signed-in UI.
-- Use `requireChatGPTUser(returnTo)` for server-rendered pages that should send
-  anonymous visitors through Sign in with ChatGPT.
-- Use `chatGPTSignInPath(returnTo)` and `chatGPTSignOutPath(returnTo)` for
-  browser links or actions.
-- Pass a same-origin relative `returnTo` path for the destination after sign-in
-  or sign-out. The helper validates and safely encodes it.
-- Mark protected pages with `export const dynamic = "force-dynamic"` because
-  they depend on per-request identity headers.
-
-Dispatch owns `/signin-with-chatgpt`, `/signout-with-chatgpt`, `/callback`, the
-OAuth cookies, and identity header injection. Do not implement app routes for
-those reserved paths. Routes that do not import and call the helper remain
-anonymous-compatible.
-
-SIWC establishes identity only; it does not prove workspace membership. Use the
-Sites hosting platform's access policy controls for workspace-wide restrictions,
-or enforce explicit server-side membership or allowlist checks.
-
-Use SIWC for account pages, user-specific dashboards, saved records, and write
-actions tied to the current ChatGPT user. Leave public content anonymous.
-
-## Useful Commands
-
-- `npm run dev`: start local development
-- `npm run build`: verify the vinext build output
-- `npm test`: build the starter and verify its rendered loading skeleton
-- `npm run db:generate`: generate Drizzle migrations after schema changes
-
-## Learn More
-
-- [vinext Documentation](https://github.com/cloudflare/vinext)
-- [Drizzle D1 Guide](https://orm.drizzle.team/docs/get-started/d1-new)
+รายละเอียดของแต่ละส่วนอยู่ใน README ของโฟลเดอร์นั้น ๆ

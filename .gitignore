@@ -1,42 +1,30 @@
-# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+# ความลับ — ห้ามขึ้น git เด็ดขาด (รหัสผ่านฐานข้อมูล, กุญแจ API)
+.env
+.env.*
+!.env.example
+# ยกเว้นค่าที่ใช้ build ขึ้น Pages — มีแค่ URL กับ publishable key ที่เปิดเผยได้
+!.env.production
 
-# dependencies
-/node_modules
-/.pnp
-.pnp.*
-.yarn/*
-!.yarn/patches
-!.yarn/plugins
-!.yarn/releases
-!.yarn/versions
+# dependency / ผลลัพธ์การ build
+node_modules/
+dist/
+dist-ssr/
+.vite/
 
-# testing
-/coverage
+# ไฟล์ที่ Go build ออกมา และไฟล์รูปที่อัปโหลด
+# ใช้ path เต็ม ไม่ใช่ชื่อ "server" เฉย ๆ ไม่งั้นจะไปตรงกับโฟลเดอร์ cmd/server ด้วย
+/stores/server
+/stores/server.exe
+*.exe~
+bin/
+data/
 
-# next.js
-/.next/
-/.vinext/
-/out/
+# ไฟล์ชั่วคราวจากการทดสอบ
+.probe/
+.smoke/
+.gotmp/
+*.local
 
-# misc
+# ระบบปฏิบัติการ / เครื่องมือ
 .DS_Store
-*.pem
-
-# debug
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-.pnpm-debug.log*
-
-# env files (can opt-in for committing if needed)
-.env*
-
-# vercel
-.vercel
-
-# typescript
-next-env.d.ts
-/dist/
-/.wrangler/
-/outputs/
-/work/
+Thumbs.db

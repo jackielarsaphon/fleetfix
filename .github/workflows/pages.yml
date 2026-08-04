@@ -1,0 +1,61 @@
+name: Deploy to GitHub Pages
+
+# build หน้าเว็บ React แล้ว deploy ขึ้น GitHub Pages ทุกครั้งที่ push เข้า main
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'fleetfix-react/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# ให้ deploy ทีละงาน ไม่ยกเลิกงานที่กำลังรันอยู่
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: fleetfix-react
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: fleetfix-react/package-lock.json
+
+      - run: npm ci
+
+      - name: Build
+        env:
+          # GitHub Pages เสิร์ฟที่ /<ชื่อ repo>/ จึงต้องตั้ง base ให้ตรง
+          VITE_BASE: /${{ github.event.repository.name }}/
+        run: npm run build
+
+      - name: ทำ 404.html ให้เท่ากับ index.html
+        # Pages ไม่มีเซิร์ฟเวอร์ให้ทำ SPA fallback — สำเนา index.html ไว้กัน 404 ตอนรีเฟรช
+        run: cp dist/index.html dist/404.html
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: fleetfix-react/dist
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

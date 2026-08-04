@@ -1,0 +1,11 @@
+node_modules
+dist
+dist-ssr
+*.local
+.env
+.env.*
+!.env.example
+# ค่าที่ใช้ build ขึ้น Pages — มีแค่ URL กับ publishable key ที่เปิดเผยได้
+!.env.production
+.vite
+.DS_Store

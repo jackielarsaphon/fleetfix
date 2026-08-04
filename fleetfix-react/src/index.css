@@ -1,0 +1,36 @@
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: #edeae3;
+  font-family: 'IBM Plex Sans Thai', system-ui, sans-serif;
+  color: #1c1b18;
+  -webkit-font-smoothing: antialiased;
+}
+
+a { color: #0f5f5c; text-decoration: none; }
+a:hover { color: #b45309; }
+
+input, select, textarea, button {
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+}
+
+table { border-collapse: collapse; }
+
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb { background: #cfc9bd; border-radius: 8px; }
+
+/* เอฟเฟกต์ hover ที่ต้นฉบับใช้ style-hover — ในเวอร์ชัน React ใช้คลาสแทน */
+.hov-nav:hover { background: #2c2a25 !important; }
+.hov-row:hover { background: #faf8f4 !important; }
+.hov-card:hover { border-color: #b45309 !important; }
+.hov-orange:hover { background: #c96412 !important; }
+.hov-teal:hover { background: #14736f !important; }
+.hov-border:hover { border-color: #b45309 !important; }
+.hov-text:hover { color: #b45309 !important; }
+.hov-dark:hover { color: #1c1b18 !important; }
+.hov-danger:hover { border-color: #b3261e !important; color: #b3261e !important; }
+.hov-slot:hover { border-color: #b45309 !important; color: #b45309 !important; }
+.hov-close:hover { background: #b45309 !important; color: #fff !important; border-color: #b45309 !important; }

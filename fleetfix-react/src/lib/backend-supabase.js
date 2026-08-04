@@ -1,0 +1,359 @@
+// ────────────────────────────────────────────────────────────
+// Backend ที่คุย Supabase ตรงจากเบราว์เซอร์ (ใช้กับ GitHub Pages)
+//
+// ⚠️ publishable key อยู่ในไฟล์ JS ที่ทุกคนอ่านได้ และ RLS ของระบบนี้เปิดให้
+//    role anon แก้ข้อมูลได้ → ใครเปิดเว็บก็แก้ข้อมูลได้ทั้งฐาน
+//    เหมาะกับงานเดโม/วงปิด ถ้าจะใช้จริงกับข้อมูลสำคัญให้ใช้ backend-go.js
+//
+// ไม่มี transaction ข้าม request — createJob จะลบใบงานที่สร้างค้างให้เอง
+// ถ้าขั้นบันทึกอะไหล่ล้มเหลว
+// ────────────────────────────────────────────────────────────
+
+import { createClient } from '@supabase/supabase-js';
+
+const url = import.meta.env.VITE_SUPABASE_URL;
+const key = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY;
+
+export const isConfigured = Boolean(url && key);
+
+const db = isConfigured
+  ? createClient(url, key, { auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false } })
+  : null;
+
+const PHOTO_BUCKET = 'job-photos';
+const SIGNED_URL_TTL = 3600; // วินาที
+
+/** true เมื่อยังไม่ได้ apply migration (ไม่พบตาราง/view) */
+export function isApiDown(error) {
+  return ['PGRST205', 'PGRST202', '42P01'].includes(error?.code);
+}
+
+function unwrap({ data, error }) {
+  if (error) throw error;
+  return data;
+}
+
+/** 2026-05-06 → 06/05/2026 */
+function thaiDate(iso) {
+  if (!iso) return '—';
+  const [y, m, d] = iso.split('-');
+  return `${d}/${m}/${y}`;
+}
+
+// ── แปลงแถวฐานข้อมูล → รูปแบบที่หน้าจอใช้ ────────────────────
+
+function mapPart(row) {
+  return {
+    _id: row.id,
+    name: row.name,
+    partNo: row.part_no || '—',
+    qty: Number(row.qty),
+    unit: row.unit,
+    unitPrice: Number(row.unit_price),
+    disc: Number(row.discount_pct),
+    pr: row.purchase_requests?.code || '',
+  };
+}
+
+function mapJob(row, parts) {
+  return {
+    _id: row.id,
+    code: row.code,
+    statusCode: row.status,
+    vehicle: row.vehicle_code,
+    mileage: row.mileage ?? 0,
+    symptom: row.symptom,
+    rootCause: row.root_cause || '—',
+    status: row.status_label,
+    tech: row.technicians || '—',
+    pr: row.pr_codes?.[0] || '',
+    reportedAt: thaiDate(row.reported_on),
+    breakDate: thaiDate(row.break_on),
+    doneDate: thaiDate(row.done_on),
+    reporter: row.reporter || '—',
+    place: row.place_name || '—',
+    note: row.note || '—',
+    photos: row.photo_count ?? 0,
+    age: row.age_days ?? 0,
+    parts,
+  };
+}
+
+function mapVehicle(row) {
+  return {
+    _id: row.id,
+    code: row.code,
+    model: row.brand_model || row.vehicle_type || 'ไม่ระบุรุ่น',
+    plate: row.plate || '',
+    note: row.note || '',
+    mileage: row.mileage ?? 0,
+    lastDate: thaiDate(row.last_reported_on),
+  };
+}
+
+function mapPlace(row) {
+  return { _id: row.id, name: row.name, kind: row.kind || 'ไม่ระบุประเภท' };
+}
+
+// ── อ่านข้อมูล ──────────────────────────────────────────────
+
+export async function fetchAll() {
+  const [jobRows, partRows, vehicleRows, placeRows] = await Promise.all([
+    db.from('jobs_list').select('*').order('reported_on', { ascending: false }).order('code', { ascending: false }).then(unwrap),
+    db
+      .from('job_parts')
+      .select('id, job_id, line_no, name, part_no, qty, unit, unit_price, discount_pct, purchase_requests(code)')
+      .order('line_no', { ascending: true })
+      .then(unwrap),
+    db.from('vehicle_summary').select('*').eq('is_active', true).order('code', { ascending: true }).then(unwrap),
+    db.from('repair_places').select('id, name, kind').eq('is_active', true).order('name', { ascending: true }).then(unwrap),
+  ]);
+
+  const partsByJob = new Map();
+  for (const row of partRows) {
+    if (!partsByJob.has(row.job_id)) partsByJob.set(row.job_id, []);
+    partsByJob.get(row.job_id).push(mapPart(row));
+  }
+
+  return {
+    jobs: jobRows.map((row) => mapJob(row, partsByJob.get(row.id) || [])),
+    vehicles: vehicleRows.map(mapVehicle),
+    places: placeRows.map(mapPlace),
+  };
+}
+
+// ── แก้ข้อมูล ───────────────────────────────────────────────
+
+async function findId(table, column, value) {
+  if (!value) return null;
+  const rows = await db.from(table).select('id').eq(column, value).limit(1).then(unwrap);
+  return rows?.[0]?.id ?? null;
+}
+
+/** หา (หรือสร้าง) ใบสั่งซื้อจากเลข PR */
+async function ensurePurchaseRequest(code) {
+  const clean = (code || '').trim();
+  if (!clean) return null;
+
+  const existing = await findId('purchase_requests', 'code', clean);
+  if (existing) return existing;
+
+  try {
+    const rows = await db.from('purchase_requests').insert({ code: clean }).select('id').then(unwrap);
+    return rows[0].id;
+  } catch (err) {
+    if (err.code === '23505') return findId('purchase_requests', 'code', clean);
+    throw err;
+  }
+}
+
+export async function createJob(draft) {
+  const vehicleId = await findId('vehicles', 'code', draft.vehicleCode);
+  if (!vehicleId) throw new Error(`ไม่พบเบอร์รถ ${draft.vehicleCode}`);
+
+  const placeId = draft.placeName ? await findId('repair_places', 'name', draft.placeName) : null;
+
+  const created = await db
+    .from('repair_jobs')
+    .insert({
+      vehicle_id: vehicleId,
+      place_id: placeId,
+      symptom: draft.symptom,
+      mileage: draft.mileage ?? null,
+      break_on: draft.breakOn || null,
+      reporter: draft.reporter || null,
+      note: draft.note || null,
+      created_by: draft.createdBy || 'ธุรการ',
+    })
+    .select('id, code')
+    .then(unwrap);
+
+  const job = created[0];
+
+  try {
+    const parts = draft.parts ?? [];
+    if (parts.length) {
+      const prIds = new Map();
+      for (const p of parts) {
+        const code = (p.pr_code || '').trim();
+        if (code && !prIds.has(code)) prIds.set(code, await ensurePurchaseRequest(code));
+      }
+      await db
+        .from('job_parts')
+        .insert(
+          parts.map((p, i) => ({
+            job_id: job.id,
+            line_no: i + 1,
+            name: p.name,
+            part_no: p.part_no || null,
+            qty: p.qty ?? 1,
+            unit: p.unit || 'ชิ้น',
+            unit_price: p.unit_price ?? 0,
+            discount_pct: p.discount_pct ?? 0,
+            pr_id: prIds.get((p.pr_code || '').trim()) ?? null,
+          }))
+        )
+        .then(unwrap);
+    }
+
+    const techs = [...new Set((draft.technicians ?? []).map((t) => (t || '').trim()).filter(Boolean))];
+    if (techs.length) {
+      await db
+        .from('technicians')
+        .upsert(techs.map((name) => ({ name })), { onConflict: 'name', ignoreDuplicates: true })
+        .then(unwrap);
+      const rows = await db.from('technicians').select('id').in('name', techs).then(unwrap);
+      await db
+        .from('job_technicians')
+        .insert(rows.map((t) => ({ job_id: job.id, technician_id: t.id })))
+        .then(unwrap);
+    }
+  } catch (err) {
+    await db.from('repair_jobs').delete().eq('id', job.id);
+    throw err;
+  }
+
+  // คืนใบงานในรูปแบบเดียวกับ backend อื่น
+  const rows = await db.from('jobs_list').select('*').eq('id', job.id).limit(1).then(unwrap);
+  const partRows = await db
+    .from('job_parts')
+    .select('id, job_id, line_no, name, part_no, qty, unit, unit_price, discount_pct, purchase_requests(code)')
+    .eq('job_id', job.id)
+    .order('line_no')
+    .then(unwrap);
+  return mapJob(rows[0], partRows.map(mapPart));
+}
+
+export async function advanceJob(jobId) {
+  const jobs = await db.from('repair_jobs').select('status').eq('id', jobId).limit(1).then(unwrap);
+  const status = jobs?.[0]?.status;
+  if (!status) throw new Error('ไม่พบใบงานนี้ในระบบ');
+
+  const statuses = await db.from('job_statuses').select('next_code').eq('code', status).limit(1).then(unwrap);
+  const next = statuses?.[0]?.next_code;
+  if (!next || next === status) return null;
+
+  await db.from('repair_jobs').update({ status: next }).eq('id', jobId).then(unwrap);
+
+  const rows = await db.from('jobs_list').select('*').eq('id', jobId).limit(1).then(unwrap);
+  return mapJob(rows[0], []);
+}
+
+export async function setPartPr(partId, code) {
+  const prId = await ensurePurchaseRequest(code);
+  return db.from('job_parts').update({ pr_id: prId }).eq('id', partId).then(unwrap);
+}
+
+export async function createVehicle(form) {
+  const rows = await db
+    .from('vehicles')
+    .insert({
+      code: form.code,
+      brand_model: form.model || null,
+      vehicle_type: form.type || null,
+      owner: form.owner || null,
+      plate: form.plate || null,
+      note: form.note || null,
+    })
+    .select('id')
+    .then(unwrap);
+
+  const summary = await db.from('vehicle_summary').select('*').eq('id', rows[0].id).limit(1).then(unwrap);
+  return mapVehicle(summary[0]);
+}
+
+export async function createPlace(form) {
+  const rows = await db
+    .from('repair_places')
+    .insert({ name: form.name, kind: form.kind || null })
+    .select('id, name, kind')
+    .then(unwrap);
+  return mapPlace(rows[0]);
+}
+
+export async function deactivatePlace(placeId) {
+  return db.from('repair_places').update({ is_active: false }).eq('id', placeId).then(unwrap);
+}
+
+// ── รูปภาพ (Supabase Storage) ───────────────────────────────
+// ไฟล์อยู่ใน bucket job-photos แบบ private — ดึงด้วย signed URL อายุ 1 ชั่วโมง
+
+export async function fetchJobPhotos(jobId) {
+  const rows = await db
+    .from('job_photos')
+    .select('id, job_id, kind, caption, sort_order, storage_path')
+    .eq('job_id', jobId)
+    .order('kind')
+    .order('sort_order')
+    .then(unwrap);
+
+  if (!rows.length) return [];
+
+  const signed = await db.storage
+    .from(PHOTO_BUCKET)
+    .createSignedUrls(rows.map((r) => r.storage_path), SIGNED_URL_TTL)
+    .then(unwrap);
+
+  return rows.map((row, i) => ({
+    _id: row.id,
+    jobId: row.job_id,
+    kind: row.kind,
+    caption: row.caption || '',
+    src: signed?.[i]?.signedUrl || '',
+  }));
+}
+
+export async function uploadJobPhoto(jobId, file, kind = 'before', caption = '') {
+  const ext = (file.name.split('.').pop() || 'jpg').toLowerCase();
+  const rand = Math.random().toString(16).slice(2, 10);
+  const path = `${jobId}/${kind}-${rand}.${ext}`;
+
+  await db.storage.from(PHOTO_BUCKET).upload(path, file, { contentType: file.type }).then(unwrap);
+
+  try {
+    // sort_order ต่อท้ายรูปที่มีอยู่ของประเภทเดียวกัน
+    const existing = await db
+      .from('job_photos')
+      .select('sort_order')
+      .eq('job_id', jobId)
+      .eq('kind', kind)
+      .order('sort_order', { ascending: false })
+      .limit(1)
+      .then(unwrap);
+
+    const rows = await db
+      .from('job_photos')
+      .insert({
+        job_id: jobId,
+        kind,
+        storage_path: path,
+        caption: caption || null,
+        sort_order: (existing?.[0]?.sort_order ?? -1) + 1,
+      })
+      .select('id, job_id, kind, caption')
+      .then(unwrap);
+
+    const signed = await db.storage.from(PHOTO_BUCKET).createSignedUrl(path, SIGNED_URL_TTL).then(unwrap);
+
+    return {
+      _id: rows[0].id,
+      jobId: rows[0].job_id,
+      kind: rows[0].kind,
+      caption: rows[0].caption || '',
+      src: signed?.signedUrl || '',
+    };
+  } catch (err) {
+    // บันทึกฐานข้อมูลไม่ผ่าน — ลบไฟล์ที่เพิ่งอัปทิ้ง ไม่ให้เหลือไฟล์กำพร้า
+    await db.storage.from(PHOTO_BUCKET).remove([path]);
+    throw err;
+  }
+}
+
+export async function deleteJobPhoto(photoId) {
+  const rows = await db.from('job_photos').select('storage_path').eq('id', photoId).limit(1).then(unwrap);
+  const path = rows?.[0]?.storage_path;
+
+  await db.from('job_photos').delete().eq('id', photoId).then(unwrap);
+  if (path) await db.storage.from(PHOTO_BUCKET).remove([path]);
+  return null;
+}
