@@ -14,6 +14,7 @@ import (
 
 	"fleetfix/stores/internal/api"
 	"fleetfix/stores/internal/config"
+	"fleetfix/stores/internal/storage"
 	"fleetfix/stores/internal/store"
 )
 
@@ -46,9 +47,19 @@ func run() error {
 	defer st.Close()
 	slog.Info("เชื่อมต่อฐานข้อมูลสำเร็จ")
 
+	// ที่เก็บรูป: ใช้ Supabase Storage ถ้าตั้งค่าไว้ (ที่เดียวกับที่หน้าเว็บบน Pages อ่าน)
+	// ไม่งั้นเก็บลงดิสก์ของเซิร์ฟเวอร์
+	var photos storage.Store
+	if cfg.SupabaseURL != "" && cfg.SupabaseKey != "" {
+		photos = storage.NewSupabase(cfg.SupabaseURL, cfg.SupabaseKey, cfg.PhotoBucket)
+	} else {
+		photos = storage.NewDisk(cfg.PhotoDir)
+	}
+	slog.Info("ที่เก็บรูปภาพ", "kind", photos.Kind())
+
 	srv := &http.Server{
 		Addr:              cfg.Addr,
-		Handler:           api.NewRouter(st, cfg),
+		Handler:           api.NewRouter(st, photos, cfg),
 		ReadHeaderTimeout: 10 * time.Second,
 		WriteTimeout:      30 * time.Second,
 		IdleTimeout:       60 * time.Second,

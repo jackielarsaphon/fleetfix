@@ -3,15 +3,17 @@ package api
 import (
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 	"time"
 
 	"fleetfix/stores/internal/config"
+	"fleetfix/stores/internal/storage"
 )
 
 // router ที่ยังไม่ต่อฐานข้อมูล — ใช้ทดสอบเฉพาะเส้นทางที่ไม่แตะ store
 func testRouter() http.Handler {
-	return NewRouter(nil, config.Config{
+	return NewRouter(nil, storage.NewDisk(os.TempDir()), config.Config{
 		AllowedOrigins: []string{"http://localhost:5173"},
 		RequestTimeout: 5 * time.Second,
 	})

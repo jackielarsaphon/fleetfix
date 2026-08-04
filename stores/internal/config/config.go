@@ -24,9 +24,17 @@ type Config struct {
 	// RequestTimeout คือเวลาสูงสุดต่อ 1 request
 	RequestTimeout time.Duration
 
-	// PhotoDir คือโฟลเดอร์เก็บไฟล์รูปที่อัปโหลดเข้ามา
-	// ฐานข้อมูลเก็บแค่ path ไม่ได้เก็บตัวไฟล์
+	// PhotoDir คือโฟลเดอร์เก็บไฟล์รูป ใช้เมื่อไม่ได้ตั้งค่า Supabase Storage
 	PhotoDir string
+
+	// SupabaseURL + SupabaseKey ถ้ากำหนดครบ รูปจะถูกเก็บใน Supabase Storage
+	// (ที่เดียวกับที่หน้าเว็บบน GitHub Pages อ่าน) แทนที่จะเก็บบนดิสก์
+	// ใช้ publishable key ได้ — policy ของ bucket อนุญาต role anon อยู่แล้ว
+	SupabaseURL string
+	SupabaseKey string
+
+	// PhotoBucket คือชื่อ bucket ใน Supabase Storage
+	PhotoBucket string
 
 	// MaxPhotoBytes คือขนาดไฟล์รูปสูงสุดต่อ 1 รูป
 	MaxPhotoBytes int64
@@ -43,10 +51,16 @@ func Load() (Config, error) {
 		RequestTimeout: 30 * time.Second, // เผื่อเวลาอัปโหลดรูป
 		PhotoDir:       envOr("PHOTO_DIR", filepath.Join("data", "photos")),
 		MaxPhotoBytes:  10 << 20, // 10 MB
+		SupabaseURL:    strings.TrimRight(os.Getenv("SUPABASE_URL"), "/"),
+		SupabaseKey:    os.Getenv("SUPABASE_PUBLISHABLE_KEY"),
+		PhotoBucket:    envOr("PHOTO_BUCKET", "job-photos"),
 	}
 
 	if cfg.DatabaseURL == "" {
 		return cfg, fmt.Errorf("ไม่พบ DATABASE_URL — คัดลอก .env.example เป็น .env แล้วใส่ connection string ของ Supabase")
+	}
+	if cfg.SupabaseURL != "" && cfg.SupabaseKey == "" {
+		return cfg, fmt.Errorf("ตั้ง SUPABASE_URL แล้วแต่ไม่ได้ตั้ง SUPABASE_PUBLISHABLE_KEY")
 	}
 	if strings.Contains(cfg.DatabaseURL, "[YOUR-PASSWORD]") {
 		return cfg, fmt.Errorf("DATABASE_URL ยังเป็นค่าตัวอย่าง — แทน [YOUR-PASSWORD] ในไฟล์ .env ด้วยรหัสผ่านฐานข้อมูลจริง " +

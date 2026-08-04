@@ -5,12 +5,14 @@ import (
 	"net/http"
 
 	"fleetfix/stores/internal/config"
+	"fleetfix/stores/internal/storage"
 	"fleetfix/stores/internal/store"
 )
 
 type Server struct {
-	store *store.Store
-	cfg   config.Config
+	store  *store.Store
+	photos storage.Store
+	cfg    config.Config
 }
 
 // NewRouter ประกอบเส้นทางทั้งหมดของ API
@@ -31,8 +33,8 @@ type Server struct {
 //	POST   /api/places
 //	DELETE /api/places/{id}
 //	GET    /api/dashboard
-func NewRouter(st *store.Store, cfg config.Config) http.Handler {
-	s := &Server{store: st, cfg: cfg}
+func NewRouter(st *store.Store, photos storage.Store, cfg config.Config) http.Handler {
+	s := &Server{store: st, photos: photos, cfg: cfg}
 
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /api/health", s.health)

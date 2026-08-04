@@ -102,16 +102,25 @@ curl -X POST http://localhost:8080/api/jobs \
 
 ### ไฟล์รูปเก็บที่ไหน
 
-ตัวไฟล์เก็บใน **ดิสก์ของเซิร์ฟเวอร์** ที่ `PHOTO_DIR` (ค่าเริ่มต้น `data/photos/<job_id>/<kind>-<random>.<ext>`)
-ฐานข้อมูลเก็บแค่ path ในคอลัมน์ `job_photos.storage_path` และรูปถูกเสิร์ฟผ่าน `/api/photos/{id}`
-เท่านั้น — ไม่เปิด path จริงให้เห็น และมีการกัน path traversal
+เลือกได้ 2 แบบผ่าน `.env` — ฐานข้อมูลเก็บแค่ path ในคอลัมน์ `job_photos.storage_path`
+ทั้งสองแบบ และรูปถูกเสิร์ฟผ่าน `/api/photos/{id}` เท่านั้น (ไม่เปิด path จริงให้เห็น)
+
+| ตั้งค่า | เก็บที่ |
+| --- | --- |
+| ตั้ง `SUPABASE_URL` + `SUPABASE_PUBLISHABLE_KEY` | **Supabase Storage** bucket `job-photos` |
+| ไม่ตั้ง | ดิสก์ของเซิร์ฟเวอร์ที่ `PHOTO_DIR` (ค่าเริ่มต้น `data/photos`) |
+
+**แนะนำให้ตั้งค่า Supabase Storage** เพราะหน้าเว็บที่ deploy บน GitHub Pages อ่านรูปจากที่นั่น
+ถ้าเก็บลงดิสก์อย่างเดียว รูปที่อัปจากเครื่องคุณจะไม่ขึ้นบนเว็บสาธารณะ (แถวในฐานข้อมูลมี แต่หาไฟล์ไม่เจอ)
+ใช้ publishable key ได้เลย ไม่ต้องใช้ secret key เพราะ policy ของ bucket อนุญาต role `anon` อยู่แล้ว
+
+path ของไฟล์เป็น `<job_id>/<kind>-<random>.<ext>` เหมือนกันทั้งสองฝั่ง ทำให้ย้ายไปมาได้โดยไม่ต้องแก้ฐานข้อมูล
 
 - รับเฉพาะ `.jpg .jpeg .png .webp .heic` ขนาดไม่เกิน 10 MB (ตั้งได้ที่ `MaxPhotoBytes`)
-- ถ้าบันทึกฐานข้อมูลไม่ผ่าน ไฟล์ที่เพิ่งเขียนจะถูกลบทิ้ง ไม่เหลือไฟล์กำพร้า
-- ลบรูปจะลบทั้งแถวและไฟล์ และลบใบงานจะ cascade ลบแถวรูป (ไฟล์บนดิสก์ยังอยู่ — ถ้าต้องการเก็บกวาดให้เพิ่ม job ล้างไฟล์ที่ไม่มีแถวอ้างอิงภายหลัง)
+- ถ้าบันทึกฐานข้อมูลไม่ผ่าน ไฟล์ที่เพิ่งอัปจะถูกลบทิ้ง ไม่เหลือไฟล์กำพร้า
+- ลบรูปจะลบทั้งแถวและไฟล์ · ลบใบงานจะ cascade ลบแถวรูป (ตัวไฟล์ยังค้าง — ถ้าต้องการเก็บกวาดให้เพิ่มงานล้างไฟล์ที่ไม่มีแถวอ้างอิงภายหลัง)
 
-migration 0600 สร้าง bucket `job-photos` / `vehicle-photos` บน Supabase Storage ไว้ให้แล้วแต่ยังไม่ได้ใช้ —
-ถ้าจะย้ายไปเก็บบน Storage แก้เฉพาะ `savePhotoFile` / `servePhoto` ใน `internal/api/photos.go` (ต้องมี secret key)
+โค้ดส่วนนี้อยู่ใน `internal/storage/` — `Disk` กับ `Supabase` ทำตาม interface `Store` ตัวเดียวกัน
 
 ### รูปแบบ error
 
@@ -134,6 +143,7 @@ stores/
 └─ internal/
    ├─ config/config.go         # อ่าน env / .env
    ├─ model/model.go           # รูปแบบ JSON เข้า-ออก + การตรวจความถูกต้อง
+   ├─ storage/                 # ที่เก็บไฟล์รูป (Supabase Storage หรือดิสก์)
    ├─ store/                   # SQL ทั้งหมดอยู่ที่นี่
    │  ├─ store.go              # pool, error กลาง, helper เลข PR
    │  ├─ jobs.go               # ใบงาน อะไหล่ ไทม์ไลน์ (CreateJob = transaction)
