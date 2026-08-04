@@ -35,6 +35,7 @@ export default function App() {
   const [savedJob, setSavedJob] = useState(null); // ใบงานที่เพิ่งบันทึก — ใช้แสดง pop-up ยืนยัน
   const [editOpen, setEditOpen] = useState(false); // ฟอร์มแก้ไขใบงาน
   const [deleteTarget, setDeleteTarget] = useState(null); // ใบงานที่รอยืนยันลบ
+  const [vehicleTarget, setVehicleTarget] = useState(null); // รถที่รอยืนยันลบ/เลิกใช้งาน
 
   const reload = useCallback(async () => {
     setLoading(true);
@@ -300,12 +301,14 @@ export default function App() {
 
         {screen === 'vehNew' && (
           <VehicleNewScreen
-            vehicles={vehicles}
+            vehicles={perVehicle}
             onAdd={async (form) => {
               const ok = await run(() => api.createVehicle(form));
               if (ok) setSelectedVehicle(form.code);
               return ok;
             }}
+            onUpdate={(id, form) => run(() => api.updateVehicle(id, form))}
+            onDelete={(v) => setVehicleTarget(v)}
           />
         )}
 
@@ -390,6 +393,89 @@ export default function App() {
               {deleteTarget.photos > 0 && ` · รูป ${deleteTarget.photos} รูป`} · ไทม์ไลน์ทั้งหมด
             </div>
             <div style={{ color: '#8a837a', fontSize: 12 }}>เอาคืนไม่ได้ — ถ้าต้องการเก็บประวัติไว้ ให้เปลี่ยนสถานะเป็น "เสร็จแล้ว" แทน</div>
+          </div>
+        </Dialog>
+      )}
+
+      {vehicleTarget && (
+        <Dialog
+          title={vehicleTarget.count > 0 ? 'เลิกใช้งานรถคันนี้?' : 'ลบทะเบียนรถนี้?'}
+          tone={vehicleTarget.count > 0 ? 'warn' : 'error'}
+          onClose={() => setVehicleTarget(null)}
+          actions={
+            <>
+              <button
+                className="hov-border"
+                onClick={() => setVehicleTarget(null)}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #d8d1c4',
+                  borderRadius: 8,
+                  padding: '9px 15px',
+                  fontSize: 13,
+                  cursor: 'pointer',
+                }}
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={async () => {
+                  const target = vehicleTarget;
+                  setVehicleTarget(null);
+                  // รถที่มีใบงานลบถาวรไม่ได้ (FK on delete restrict) — เลิกใช้งานแทน
+                  if (target.count > 0) {
+                    await run(() =>
+                      api.updateVehicle(target._id, {
+                        code: target.code,
+                        model: target.model === 'ไม่ระบุรุ่น' ? '' : target.model,
+                        plate: target.plate,
+                        type: '',
+                        owner: '',
+                        note: target.note,
+                        isActive: false,
+                      })
+                    );
+                  } else {
+                    await run(() => api.deleteVehicle(target._id));
+                  }
+                }}
+                style={{
+                  background: vehicleTarget.count > 0 ? '#b45309' : '#b3261e',
+                  color: '#fff',
+                  border: 0,
+                  borderRadius: 8,
+                  padding: '9px 16px',
+                  fontSize: 13,
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                }}
+              >
+                <Icon name="trash" size={15} /> {vehicleTarget.count > 0 ? 'เลิกใช้งาน' : 'ลบถาวร'}
+              </button>
+            </>
+          }
+        >
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <div>
+              <strong style={{ fontFamily: "'IBM Plex Mono', monospace" }}>{vehicleTarget.code}</strong> ·{' '}
+              {vehicleTarget.model}
+              {vehicleTarget.plate ? ` · ${vehicleTarget.plate}` : ''}
+            </div>
+            {vehicleTarget.count > 0 ? (
+              <>
+                <div style={{ color: '#8a4a06' }}>
+                  รถคันนี้มีใบงาน {vehicleTarget.count} ใบ · ค่าซ่อมรวม {fmt(vehicleTarget.cost)} บาท — ลบถาวรไม่ได้
+                </div>
+                <div style={{ color: '#8a837a', fontSize: 12 }}>
+                  จะตั้งเป็น "เลิกใช้งาน" แทน — รถจะหายจากรายการและตัวเลือกในฟอร์ม แต่ประวัติซ่อมยังอยู่ครบ
+                </div>
+              </>
+            ) : (
+              <div style={{ color: '#8a837a', fontSize: 12 }}>รถคันนี้ยังไม่มีใบงาน ลบได้เลย · เอาคืนไม่ได้</div>
+            )}
           </div>
         </Dialog>
       )}

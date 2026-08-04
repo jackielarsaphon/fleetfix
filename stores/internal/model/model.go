@@ -174,6 +174,18 @@ type NewVehicle struct {
 	Note        string `json:"note"`
 }
 
+// EditVehicle คือข้อมูลรถที่แก้ได้ — ส่งมาทั้งชุด
+// IsActive เป็น pointer เพื่อแยก "ไม่ได้ส่งมา" (คงค่าเดิม) จาก false (เลิกใช้งาน)
+type EditVehicle struct {
+	Code        string `json:"code"`
+	Plate       string `json:"plate"`
+	BrandModel  string `json:"brandModel"`
+	VehicleType string `json:"vehicleType"`
+	Owner       string `json:"owner"`
+	Note        string `json:"note"`
+	IsActive    *bool  `json:"isActive"`
+}
+
 type NewPlace struct {
 	Name    string `json:"name"`
 	Kind    string `json:"kind"`
@@ -303,6 +315,20 @@ func (n *NewVehicle) Validate() error {
 	n.Note = strings.TrimSpace(n.Note)
 
 	if n.Code == "" {
+		return fmt.Errorf("ต้องระบุ code (เบอร์รถ)")
+	}
+	return nil
+}
+
+func (e *EditVehicle) Validate() error {
+	e.Code = strings.TrimSpace(e.Code)
+	e.Plate = strings.TrimSpace(e.Plate)
+	e.BrandModel = strings.TrimSpace(e.BrandModel)
+	e.VehicleType = strings.TrimSpace(e.VehicleType)
+	e.Owner = strings.TrimSpace(e.Owner)
+	e.Note = strings.TrimSpace(e.Note)
+
+	if e.Code == "" {
 		return fmt.Errorf("ต้องระบุ code (เบอร์รถ)")
 	}
 	return nil

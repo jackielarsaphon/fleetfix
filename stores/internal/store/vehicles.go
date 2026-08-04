@@ -2,6 +2,7 @@ package store
 
 import (
 	"context"
+	"fmt"
 
 	"fleetfix/stores/internal/model"
 )
@@ -67,6 +68,50 @@ func (s *Store) GetVehicle(ctx context.Context, code string) (model.Vehicle, err
 		return model.Vehicle{}, classify(err)
 	}
 	return v, nil
+}
+
+// UpdateVehicle แก้ข้อมูลรถทั้งชุด (IsActive = nil คงค่าเดิม)
+func (s *Store) UpdateVehicle(ctx context.Context, id string, in model.EditVehicle) (model.Vehicle, error) {
+	var code string
+	err := s.pool.QueryRow(ctx, `
+		update public.vehicles set
+		  code         = $2,
+		  plate        = nullif($3, ''),
+		  brand_model  = nullif($4, ''),
+		  vehicle_type = nullif($5, ''),
+		  owner        = nullif($6, ''),
+		  note         = nullif($7, ''),
+		  is_active    = coalesce($8, is_active)
+		where id = $1::uuid
+		returning code`,
+		id, in.Code, in.Plate, in.BrandModel, in.VehicleType, in.Owner, in.Note, in.IsActive).Scan(&code)
+	if err != nil {
+		return model.Vehicle{}, classify(err)
+	}
+	return s.GetVehicle(ctx, code)
+}
+
+// DeleteVehicle ลบรถถาวร — ทำได้เฉพาะเมื่อไม่มีใบงานอ้างถึง
+// (FK เป็น on delete restrict อยู่แล้ว แต่เช็คก่อนเพื่อบอกเหตุผลให้ชัด)
+func (s *Store) DeleteVehicle(ctx context.Context, id string) error {
+	var jobs int
+	if err := s.pool.QueryRow(ctx,
+		`select count(*) from public.repair_jobs where vehicle_id = $1::uuid`, id).Scan(&jobs); err != nil {
+		return classify(err)
+	}
+	if jobs > 0 {
+		return fmt.Errorf("%w: รถคันนี้มีใบงาน %d ใบอยู่ในระบบ ลบถาวรไม่ได้ — ใช้ \"เลิกใช้งาน\" แทนเพื่อเก็บประวัติซ่อมไว้",
+			ErrConflict, jobs)
+	}
+
+	tag, err := s.pool.Exec(ctx, `delete from public.vehicles where id = $1::uuid`, id)
+	if err != nil {
+		return classify(err)
+	}
+	if tag.RowsAffected() == 0 {
+		return ErrNotFound
+	}
+	return nil
 }
 
 // CreateVehicle เพิ่มทะเบียนรถใหม่

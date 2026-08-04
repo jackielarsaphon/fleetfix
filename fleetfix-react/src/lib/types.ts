@@ -213,6 +213,11 @@ export interface NewVehicleForm {
   note: string;
 }
 
+/** ข้อมูลรถที่แก้ได้ — isActive ไม่ส่ง = คงค่าเดิม, false = เลิกใช้งาน */
+export interface EditVehicleForm extends NewVehicleForm {
+  isActive?: boolean;
+}
+
 export interface NewPlaceForm {
   name: string;
   kind: string;
@@ -243,6 +248,8 @@ export interface Backend {
   setPartPr(partId: string, code: string): Promise<unknown>;
 
   createVehicle(form: NewVehicleForm): Promise<Vehicle>;
+  updateVehicle(vehicleId: string, form: EditVehicleForm): Promise<Vehicle>;
+  deleteVehicle(vehicleId: string): Promise<unknown>;
   createPlace(form: NewPlaceForm): Promise<Place>;
   deactivatePlace(placeId: string): Promise<unknown>;
 

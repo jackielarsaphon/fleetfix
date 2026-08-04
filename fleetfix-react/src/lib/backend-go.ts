@@ -10,6 +10,7 @@
 import type {
   DataSet,
   EditJobDraft,
+  EditVehicleForm,
   Job,
   NewJobDraft,
   NewPlaceForm,
@@ -226,6 +227,25 @@ export async function createVehicle(form: NewVehicleForm): Promise<Vehicle> {
       note: form.note || '',
     })
   );
+}
+
+export async function updateVehicle(vehicleId: string, form: EditVehicleForm): Promise<Vehicle> {
+  return mapVehicle(
+    await request<WireVehicle>('PATCH', `/api/vehicles/${vehicleId}`, {
+      code: form.code,
+      plate: form.plate || '',
+      brandModel: form.model || '',
+      vehicleType: form.type || '',
+      owner: form.owner || '',
+      note: form.note || '',
+      isActive: form.isActive ?? null,
+    })
+  );
+}
+
+/** ลบรถถาวร — เซิร์ฟเวอร์ปฏิเสธ (409) ถ้ารถคันนั้นมีใบงานอยู่ */
+export async function deleteVehicle(vehicleId: string): Promise<unknown> {
+  return request('DELETE', `/api/vehicles/${vehicleId}`);
 }
 
 export async function createPlace(form: NewPlaceForm): Promise<Place> {

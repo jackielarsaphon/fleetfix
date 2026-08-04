@@ -174,6 +174,42 @@ func (s *Server) createVehicle(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusCreated, v)
 }
 
+func (s *Server) updateVehicle(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	var in model.EditVehicle
+	if err := decodeJSON(r, &in); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := in.Validate(); err != nil {
+		writeError(w, r, badRequest("%v", err))
+		return
+	}
+	v, err := s.store.UpdateVehicle(r.Context(), id, in)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, v)
+}
+
+func (s *Server) deleteVehicle(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	if err := s.store.DeleteVehicle(r.Context(), id); err != nil {
+		writeError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // ── สถานที่ซ่อม ─────────────────────────────────────────────
 
 func (s *Server) listPlaces(w http.ResponseWriter, r *http.Request) {

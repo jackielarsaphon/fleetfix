@@ -14,6 +14,7 @@ import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import type {
   DataSet,
   EditJobDraft,
+  EditVehicleForm,
   Job,
   NewJobDraft,
   NewPlaceForm,
@@ -396,6 +397,36 @@ export async function createVehicle(form: NewVehicleForm): Promise<Vehicle> {
   const row = summary[0];
   if (!row) throw new Error('เพิ่มทะเบียนรถไม่สำเร็จ');
   return mapVehicle(row);
+}
+
+export async function updateVehicle(vehicleId: string, form: EditVehicleForm): Promise<Vehicle> {
+  const patch: Record<string, unknown> = {
+    code: form.code,
+    plate: form.plate || null,
+    brand_model: form.model || null,
+    vehicle_type: form.type || null,
+    owner: form.owner || null,
+    note: form.note || null,
+  };
+  if (form.isActive !== undefined) patch.is_active = form.isActive;
+
+  await db.from('vehicles').update(patch).eq('id', vehicleId).then(unwrap);
+
+  const rows = (await db.from('vehicle_summary').select('*').eq('id', vehicleId).limit(1).then(unwrap)) as VehicleRow[];
+  const row = rows[0];
+  if (!row) throw new Error('ไม่พบรถคันนี้ในระบบ');
+  return mapVehicle(row);
+}
+
+/** ลบรถถาวร — ทำได้เฉพาะเมื่อไม่มีใบงานอ้างถึง (FK เป็น on delete restrict) */
+export async function deleteVehicle(vehicleId: string): Promise<unknown> {
+  const jobs = (await db.from('repair_jobs').select('id').eq('vehicle_id', vehicleId).then(unwrap)) as { id: string }[];
+  if (jobs.length > 0) {
+    throw new Error(
+      `รถคันนี้มีใบงาน ${jobs.length} ใบอยู่ในระบบ ลบถาวรไม่ได้ — ใช้ "เลิกใช้งาน" แทนเพื่อเก็บประวัติซ่อมไว้`
+    );
+  }
+  return db.from('vehicles').delete().eq('id', vehicleId).then(unwrap);
 }
 
 export async function createPlace(form: NewPlaceForm): Promise<Place> {

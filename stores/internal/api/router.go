@@ -31,6 +31,8 @@ type Server struct {
 //	PATCH  /api/parts/{id}/pr
 //	GET    /api/vehicles
 //	POST   /api/vehicles
+//	PATCH  /api/vehicles/{id}
+//	DELETE /api/vehicles/{id}   (ได้เฉพาะรถที่ยังไม่มีใบงาน)
 //	GET    /api/places?includeInactive=true
 //	POST   /api/places
 //	DELETE /api/places/{id}
@@ -57,6 +59,8 @@ func NewRouter(st *store.Store, photos storage.Store, cfg config.Config) http.Ha
 
 	mux.HandleFunc("GET /api/vehicles", s.listVehicles)
 	mux.HandleFunc("POST /api/vehicles", s.createVehicle)
+	mux.HandleFunc("PATCH /api/vehicles/{id}", s.updateVehicle)
+	mux.HandleFunc("DELETE /api/vehicles/{id}", s.deleteVehicle)
 
 	mux.HandleFunc("GET /api/places", s.listPlaces)
 	mux.HandleFunc("POST /api/places", s.createPlace)

@@ -8,8 +8,22 @@ const LABEL = { display: 'flex', flexDirection: 'column', gap: 6, fontSize: 12, 
 
 const EMPTY = { code: '', model: '', plate: '', type: '', owner: '', note: '' };
 
-export default function VehicleNewScreen({ vehicles, onAdd }) {
+const ROW_BTN = {
+  background: '#fff',
+  border: '1px solid #e2ddd2',
+  borderRadius: 7,
+  padding: '6px 10px',
+  fontSize: 12,
+  color: '#6f6860',
+  cursor: 'pointer',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: 5,
+};
+
+export default function VehicleNewScreen({ vehicles, onAdd, onUpdate, onDelete }) {
   const [open, setOpen] = useState(false);
+  const [editing, setEditing] = useState(null); // รถที่กำลังแก้ (null = เพิ่มใหม่)
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
@@ -19,25 +33,58 @@ export default function VehicleNewScreen({ vehicles, onAdd }) {
     setError('');
   }
 
+  function openCreate() {
+    setEditing(null);
+    setForm(EMPTY);
+    setError('');
+    setOpen(true);
+  }
+
+  function openEdit(v) {
+    setEditing(v);
+    setForm({
+      code: v.code,
+      // model ที่หน้าจอใช้คือ brand_model — ถ้าว่างจะ fallback เป็นประเภทรถ
+      model: v.model === 'ไม่ระบุรุ่น' ? '' : v.model,
+      plate: v.plate || '',
+      type: '',
+      owner: '',
+      note: v.note || '',
+    });
+    setError('');
+    setOpen(true);
+  }
+
+  function close() {
+    setOpen(false);
+    setEditing(null);
+    setForm(EMPTY);
+    setError('');
+  }
+
   async function save() {
     const code = form.code.trim();
     if (!code) return setError('กรุณากรอกเบอร์รถ');
-    if (vehicles.some((v) => v.code.toLowerCase() === code.toLowerCase())) return setError('เบอร์รถนี้มีอยู่ในระบบแล้ว');
+
+    const clash = vehicles.some(
+      (v) => v.code.toLowerCase() === code.toLowerCase() && v._id !== editing?._id
+    );
+    if (clash) return setError('เบอร์รถนี้มีอยู่ในระบบแล้ว');
+
+    const payload = {
+      code,
+      model: form.model.trim(),
+      type: form.type.trim(),
+      owner: form.owner.trim(),
+      plate: form.plate.trim(),
+      note: form.note.trim(),
+    };
 
     setSaving(true);
     try {
-      const ok = await onAdd({
-        code,
-        model: form.model.trim(),
-        type: form.type.trim(),
-        owner: form.owner.trim(),
-        plate: form.plate.trim(),
-        note: form.note.trim(),
-      });
-      if (ok === false) return;                 // บันทึกไม่ผ่าน — คงข้อมูลในฟอร์มไว้
-      setForm(EMPTY);
-      setError('');
-      setOpen(false);
+      const ok = editing ? await onUpdate(editing._id, payload) : await onAdd(payload);
+      if (ok === false) return; // บันทึกไม่ผ่าน — คงข้อมูลในฟอร์มไว้
+      close();
     } finally {
       setSaving(false);
     }
@@ -57,15 +104,14 @@ export default function VehicleNewScreen({ vehicles, onAdd }) {
         }}
       >
         <div>
-          <h1 style={{ margin: 0, fontSize: 21, fontWeight: 700, letterSpacing: '-0.3px' }}>เพิ่มทะเบียนรถ</h1>
-          <div style={{ fontSize: '12.5px', color: '#6f6860', marginTop: 3 }}>ทั้งหมด {vehicles.length} คัน · กดปุ่มเพื่อกรอกข้อมูลรถคันใหม่</div>
+          <h1 style={{ margin: 0, fontSize: 21, fontWeight: 700, letterSpacing: '-0.3px' }}>ทะเบียนรถ</h1>
+          <div style={{ fontSize: '12.5px', color: '#6f6860', marginTop: 3 }}>
+            ทั้งหมด {vehicles.length} คัน · เพิ่มรถใหม่ หรือกด "แก้ไข" ที่แถวเพื่อแก้ข้อมูลรถคันนั้น
+          </div>
         </div>
         <button
           className="hov-orange"
-          onClick={() => {
-            setOpen(true);
-            setError('');
-          }}
+          onClick={openCreate}
           style={{
             background: '#b45309',
             color: '#fff',
@@ -116,11 +162,12 @@ export default function VehicleNewScreen({ vehicles, onAdd }) {
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <h2 style={{ margin: 0, fontSize: '15.5px', fontWeight: 700, display: 'flex', alignItems: 'center', gap: 8 }}>
-                  <Icon name="truck" size={17} style={{ color: '#b45309' }} /> ข้อมูลรถ
+                  <Icon name={editing ? 'pencil' : 'truck'} size={17} style={{ color: '#b45309' }} />
+                  {editing ? `แก้ไขข้อมูลรถ ${editing.code}` : 'ข้อมูลรถ'}
                 </h2>
                 <button
                   className="hov-dark"
-                  onClick={() => setOpen(false)}
+                  onClick={close}
                   style={{ background: 'none', border: 0, color: '#8a837a', cursor: 'pointer', padding: 2, display: 'grid', placeItems: 'center' }}
                 >
                   <Icon name="close" size={17} />
@@ -207,11 +254,12 @@ export default function VehicleNewScreen({ vehicles, onAdd }) {
                     gap: 7,
                   }}
                 >
-                  <Icon name="check" size={15} strokeWidth={2.1} /> {saving ? 'กำลังบันทึก...' : 'เพิ่มทะเบียนรถ'}
+                  <Icon name="check" size={15} strokeWidth={2.1} />{' '}
+                  {saving ? 'กำลังบันทึก...' : editing ? 'บันทึกการแก้ไข' : 'เพิ่มทะเบียนรถ'}
                 </button>
                 <button
                   className="hov-border"
-                  onClick={() => setOpen(false)}
+                  onClick={close}
                   style={{ background: '#fff', border: '1px solid #d8d1c4', borderRadius: 8, padding: '10px 16px', fontSize: 13, cursor: 'pointer' }}
                 >
                   ยกเลิก
@@ -232,7 +280,9 @@ export default function VehicleNewScreen({ vehicles, onAdd }) {
                 <th style={TH}>ทะเบียนรถ</th>
                 <th style={TH}>ยี่ห้อ / รุ่น</th>
                 <th style={TH}>หมายเหตุ</th>
+                <th style={TH}>ประวัติซ่อม</th>
                 <th style={TH}>รูปรถ</th>
+                <th style={TH} />
               </tr>
             </thead>
             <tbody>
@@ -242,9 +292,32 @@ export default function VehicleNewScreen({ vehicles, onAdd }) {
                   <td style={{ padding: '11px 14px' }}>{v.plate || '—'}</td>
                   <td style={{ padding: '11px 14px', color: '#4b453e' }}>{v.model}</td>
                   <td style={{ padding: '11px 14px', color: '#6f6860' }}>{v.note || '—'}</td>
+                  <td style={{ padding: '11px 14px', color: '#6f6860', whiteSpace: 'nowrap' }}>
+                    {v.count ? `${v.count} ใบงาน` : 'ยังไม่มี'}
+                  </td>
                   <td style={{ padding: '8px 14px' }}>
                     <div style={{ width: 96, height: 60 }}>
                       <ImageSlot placeholder="ลากรูปรถ" radius={6} />
+                    </div>
+                  </td>
+                  <td style={{ padding: '11px 14px', textAlign: 'right', whiteSpace: 'nowrap' }}>
+                    <div style={{ display: 'inline-flex', gap: 6 }}>
+                      <button
+                        className="hov-border"
+                        onClick={() => openEdit(v)}
+                        title="แก้ไขข้อมูลรถคันนี้"
+                        style={ROW_BTN}
+                      >
+                        <Icon name="pencil" size={13} /> แก้ไข
+                      </button>
+                      <button
+                        className="hov-danger"
+                        onClick={() => onDelete(v)}
+                        title={v.count ? 'มีใบงานอยู่ — ลบถาวรไม่ได้ ใช้เลิกใช้งานแทน' : 'ลบรถคันนี้'}
+                        style={ROW_BTN}
+                      >
+                        <Icon name="trash" size={13} /> ลบ
+                      </button>
                     </div>
                   </td>
                 </tr>
