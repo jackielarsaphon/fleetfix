@@ -25,10 +25,14 @@ const ROUND_BTN = {
  */
 export default function Lightbox({ items, startAt = 0, onClose }) {
   const [index, setIndex] = useState(startAt);
+  const [failed, setFailed] = useState(false);
   const count = items.length;
 
   const go = useCallback(
-    (step) => setIndex((i) => (i + step + count) % count),
+    (step) => {
+      setFailed(false);
+      setIndex((i) => (i + step + count) % count);
+    },
     [count]
   );
 
@@ -85,18 +89,41 @@ export default function Lightbox({ items, startAt = 0, onClose }) {
           </button>
         )}
 
-        <img
-          src={current.src}
-          alt={current.caption || 'รูปประกอบใบงาน'}
-          style={{
-            maxWidth: 'min(1100px, 82vw)',
-            maxHeight: '78vh',
-            objectFit: 'contain',
-            borderRadius: 10,
-            boxShadow: '0 24px 70px rgba(0,0,0,0.55)',
-            background: '#000',
-          }}
-        />
+        {failed ? (
+          <div
+            style={{
+              width: 'min(520px, 80vw)',
+              padding: '48px 28px',
+              borderRadius: 10,
+              border: '1px dashed rgba(255,255,255,0.28)',
+              background: 'rgba(255,255,255,0.04)',
+              color: '#e7e2d8',
+              textAlign: 'center',
+              fontSize: 13,
+              lineHeight: 1.8,
+            }}
+          >
+            โหลดรูปไม่ขึ้น
+            <br />
+            <span style={{ color: '#a8a29a', fontSize: 12 }}>
+              ลิงก์รูปอาจหมดอายุแล้ว — ปิดหน้านี้แล้วรีเฟรชหน้าเว็บอีกครั้ง
+            </span>
+          </div>
+        ) : (
+          <img
+            src={current.src}
+            alt={current.caption || 'รูปประกอบใบงาน'}
+            onError={() => setFailed(true)}
+            style={{
+              maxWidth: 'min(1100px, 82vw)',
+              maxHeight: '78vh',
+              objectFit: 'contain',
+              borderRadius: 10,
+              boxShadow: '0 24px 70px rgba(0,0,0,0.55)',
+              background: '#000',
+            }}
+          />
+        )}
 
         {count > 1 && (
           <button onClick={() => go(1)} title="รูปถัดไป (→)" style={ROUND_BTN}>

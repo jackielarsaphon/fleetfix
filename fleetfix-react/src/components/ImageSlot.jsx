@@ -38,9 +38,10 @@ export default function ImageSlot({
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [loadFailed, setLoadFailed] = useState(false);
   const inputRef = useRef(null);
 
-  const shown = src || localSrc;
+  const shown = loadFailed ? null : src || localSrc;
 
   async function accept(file) {
     if (!file) return;
@@ -100,6 +101,11 @@ export default function ImageSlot({
     <div
       onClick={() => {
         if (busy) return;
+        // รูปโหลดไม่ขึ้น (เช่นเน็ตหลุด หรือ signed URL หมดอายุ) — คลิกเพื่อลองใหม่
+        if (loadFailed) {
+          setLoadFailed(false);
+          return;
+        }
         if (canExpand) onExpand(shown);
         else openPicker();
       }}
@@ -133,7 +139,12 @@ export default function ImageSlot({
     >
       {shown ? (
         <>
-          <img src={shown} alt={placeholder} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+          <img
+            src={shown}
+            alt={placeholder}
+            onError={() => setLoadFailed(true)}
+            style={{ width: '100%', height: '100%', objectFit: 'cover' }}
+          />
           {canExpand && !busy && (
             <span
               style={{
@@ -157,7 +168,7 @@ export default function ImageSlot({
       ) : (
         <span style={{ lineHeight: 1.4, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 5 }}>
           <Icon name="image" size={18} style={{ opacity: 0.55 }} />
-          {error || placeholder}
+          {error || (loadFailed ? 'โหลดรูปไม่ขึ้น — กดเพื่อลองใหม่' : placeholder)}
         </span>
       )}
 
