@@ -41,6 +41,7 @@ export default function JobDetailScreen({
   photos = [],
   onBack,
   onAdvance,
+  onRevert,
   onUploadPhoto,
   onDeletePhoto,
   onEdit,
@@ -53,6 +54,8 @@ export default function JobDetailScreen({
   const t = totals(job);
   const prs = prList(job);
   const doneStep = ORDER.indexOf(job.status);
+  // สถานะก่อนหน้า — ใช้กับปุ่มย้อนกลับเวลากดเลื่อนสถานะผิด (สถานะแรกย้อนไม่ได้)
+  const prevStatus = doneStep > 0 ? ORDER[doneStep - 1] : null;
 
   // ดูรูปเต็มจอ — เลื่อนดูได้ทุกรูปในใบงาน ไม่ใช่แค่รูปที่คลิก
   const [lightboxAt, setLightboxAt] = useState(-1);
@@ -211,6 +214,28 @@ export default function JobDetailScreen({
             >
               <Icon name="check" size={15} strokeWidth={2.1} /> {NEXT_LABEL[job.status]}
             </button>
+            {prevStatus && (
+              <button
+                className="hov-border"
+                onClick={onRevert}
+                title={`กดเลื่อนสถานะผิด? ย้อนกลับเป็น "${prevStatus}"`}
+                style={{
+                  background: '#fff',
+                  border: '1px solid #d8d1c4',
+                  borderRadius: 8,
+                  padding: '9px 13px',
+                  fontSize: 13,
+                  color: '#6f6860',
+                  cursor: 'pointer',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 7,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                <Icon name="undo" size={15} /> ย้อนเป็น {prevStatus}
+              </button>
+            )}
           </div>
         </div>
       </header>

@@ -264,6 +264,7 @@ export default function App() {
             photos={photos}
             onBack={() => setScreen('list')}
             onAdvance={() => run(() => api.advanceJob(currentJob._id))}
+            onRevert={() => run(() => api.revertJob(currentJob._id))}
             onAddPart={(input) => run(() => api.createPart(currentJob._id, input))}
             onUpdatePart={(partId, input) => run(() => api.updatePart(partId, input))}
             onDeletePart={(partId) => run(() => api.deletePart(partId))}

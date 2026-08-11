@@ -413,6 +413,32 @@ export async function advanceJob(jobId: string): Promise<Job | null> {
   return readJob(jobId);
 }
 
+export async function revertJob(jobId: string): Promise<Job | null> {
+  const jobs = (await db.from('repair_jobs').select('status').eq('id', jobId).limit(1).then(unwrap)) as {
+    status: string;
+  }[];
+  const status = jobs[0]?.status;
+  if (!status) throw new Error('ไม่พบใบงานนี้ในระบบ');
+
+  const cur = (await db.from('job_statuses').select('sort_order').eq('code', status).limit(1).then(unwrap)) as {
+    sort_order: number;
+  }[];
+  const order = cur[0]?.sort_order;
+  if (order === undefined) throw new Error('ไม่พบสถานะของใบงานนี้');
+
+  const prev = (await db
+    .from('job_statuses')
+    .select('code')
+    .eq('sort_order', order - 1)
+    .limit(1)
+    .then(unwrap)) as { code: string }[];
+  const prevCode = prev[0]?.code;
+  if (!prevCode) throw new Error('ใบงานอยู่ที่สถานะแรกแล้ว ย้อนกลับไม่ได้');
+
+  await db.from('repair_jobs').update({ status: prevCode }).eq('id', jobId).then(unwrap);
+  return readJob(jobId);
+}
+
 export async function setPartPr(partId: string, code: string): Promise<unknown> {
   const prId = await ensurePurchaseRequest(code);
   return db.from('job_parts').update({ pr_id: prId }).eq('id', partId).then(unwrap);

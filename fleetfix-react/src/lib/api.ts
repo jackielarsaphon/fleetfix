@@ -31,6 +31,7 @@ export const createJob = backend.createJob;
 export const updateJob = backend.updateJob;
 export const deleteJob = backend.deleteJob;
 export const advanceJob = backend.advanceJob;
+export const revertJob = backend.revertJob;
 export const setPartPr = backend.setPartPr;
 export const createPart = backend.createPart;
 export const updatePart = backend.updatePart;

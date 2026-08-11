@@ -230,6 +230,11 @@ export async function advanceJob(jobId: string): Promise<Job> {
   return mapJob(await request<WireJob>('POST', `/api/jobs/${jobId}/advance`));
 }
 
+/** ย้อนสถานะกลับหนึ่งขั้น (กดเลื่อนสถานะผิด) */
+export async function revertJob(jobId: string): Promise<Job> {
+  return mapJob(await request<WireJob>('POST', `/api/jobs/${jobId}/revert`));
+}
+
 /** แก้เลข PR ของอะไหล่รายชิ้น (เลข PR ใหม่จะถูกสร้างให้เอง) */
 export async function setPartPr(partId: string, code: string): Promise<unknown> {
   return request('PATCH', `/api/parts/${partId}/pr`, { prCode: (code || '').trim() });

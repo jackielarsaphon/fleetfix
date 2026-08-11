@@ -129,6 +129,14 @@ const SHAPES = {
     </>
   ),
 
+  // ย้อนสถานะกลับหนึ่งขั้น
+  undo: (
+    <>
+      <path d="M4 8.5h10.5a5 5 0 0 1 0 10H8" />
+      <path d="M7.5 4.5 3.5 8.5l4 4" />
+    </>
+  ),
+
   chevronLeft: <path d="M14.5 5.5 8 12l6.5 6.5" />,
 
   chevronRight: <path d="M9.5 5.5 16 12l-6.5 6.5" />,

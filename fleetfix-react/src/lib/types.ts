@@ -277,6 +277,8 @@ export interface Backend {
   updateJob(jobId: string, draft: EditJobDraft): Promise<Job>;
   deleteJob(jobId: string): Promise<unknown>;
   advanceJob(jobId: string): Promise<Job | null>;
+  /** ย้อนสถานะกลับหนึ่งขั้น — ใช้เมื่อกดเลื่อนสถานะผิด */
+  revertJob(jobId: string): Promise<Job | null>;
   setPartPr(partId: string, code: string): Promise<unknown>;
 
   createPart(jobId: string, input: PartInput): Promise<Part>;

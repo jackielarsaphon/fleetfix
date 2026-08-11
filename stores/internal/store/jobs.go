@@ -446,6 +446,34 @@ func (s *Store) AdvanceJob(ctx context.Context, id string) (model.Job, error) {
 	return s.GetJob(ctx, id)
 }
 
+// RevertJob ย้อนสถานะกลับหนึ่งขั้น (ใช้เมื่อกดเลื่อนสถานะผิด)
+// trigger จะล้างวันที่ปิดงานให้เองเมื่อย้อนออกจากสถานะปิด และบันทึกไทม์ไลน์ไว้ตามจริง
+func (s *Store) RevertJob(ctx context.Context, id string) (model.Job, error) {
+	var prev string
+	err := s.pool.QueryRow(ctx, `
+		update public.repair_jobs j
+		   set status = prev.code
+		  from public.job_statuses cur
+		  join public.job_statuses prev on prev.sort_order = cur.sort_order - 1
+		 where cur.code = j.status
+		   and j.id = $1::uuid
+		returning j.status`, id).Scan(&prev)
+
+	if errors.Is(err, pgx.ErrNoRows) {
+		// ไม่มีแถวถูกอัปเดต — แยกว่าไม่พบใบงาน หรืออยู่ที่สถานะแรกแล้ว
+		var current string
+		if e := s.pool.QueryRow(ctx,
+			`select status from public.repair_jobs where id = $1::uuid`, id).Scan(&current); e != nil {
+			return model.Job{}, classify(e)
+		}
+		return model.Job{}, fmt.Errorf("%w: ใบงานอยู่ที่สถานะแรกแล้ว ย้อนกลับไม่ได้", ErrConflict)
+	}
+	if err != nil {
+		return model.Job{}, classify(err)
+	}
+	return s.GetJob(ctx, id)
+}
+
 // SetPartPR ผูก (หรือถอด) เลข PR ของอะไหล่รายชิ้น — ส่งเลขว่างเพื่อถอด
 func (s *Store) SetPartPR(ctx context.Context, partID, prCode string) error {
 	tx, err := s.pool.Begin(ctx)

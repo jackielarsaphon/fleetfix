@@ -24,6 +24,7 @@ type Server struct {
 //	PATCH  /api/jobs/{id}
 //	DELETE /api/jobs/{id}
 //	POST   /api/jobs/{id}/advance
+//	POST   /api/jobs/{id}/revert    (ย้อนสถานะกลับหนึ่งขั้น)
 //	GET    /api/jobs/{id}/photos
 //	POST   /api/jobs/{id}/photos   (multipart: file, kind, caption)
 //	GET    /api/photos/{id}        (ตัวไฟล์รูป)
@@ -52,6 +53,7 @@ func NewRouter(st *store.Store, photos storage.Store, cfg config.Config) http.Ha
 	mux.HandleFunc("PATCH /api/jobs/{id}", s.updateJob)
 	mux.HandleFunc("DELETE /api/jobs/{id}", s.deleteJob)
 	mux.HandleFunc("POST /api/jobs/{id}/advance", s.advanceJob)
+	mux.HandleFunc("POST /api/jobs/{id}/revert", s.revertJob)
 
 	mux.HandleFunc("GET /api/jobs/{id}/photos", s.listPhotos)
 	mux.HandleFunc("POST /api/jobs/{id}/photos", s.uploadPhoto)

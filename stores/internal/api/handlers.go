@@ -127,6 +127,20 @@ func (s *Server) advanceJob(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, job)
 }
 
+func (s *Server) revertJob(w http.ResponseWriter, r *http.Request) {
+	id, err := pathID(r)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	job, err := s.store.RevertJob(r.Context(), id)
+	if err != nil {
+		writeError(w, r, err)
+		return
+	}
+	writeJSON(w, http.StatusOK, job)
+}
+
 // ── อะไหล่ในใบงาน ───────────────────────────────────────────
 
 func (s *Server) createPart(w http.ResponseWriter, r *http.Request) {
