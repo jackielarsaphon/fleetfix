@@ -293,6 +293,12 @@ export default function App() {
               setSelectedVehicle(code);
               setScreen('fleet');
             }}
+            onOpenStatus={(status) => {
+              // ล้างคำค้นด้วย ไม่งั้นตัวเลขบนแดชบอร์ดกับจำนวนแถวที่เห็นจะไม่ตรงกัน
+              setFilter(status);
+              setQuery('');
+              setScreen('list');
+            }}
           />
         )}
 

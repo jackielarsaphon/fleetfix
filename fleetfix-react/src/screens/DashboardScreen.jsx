@@ -1,5 +1,6 @@
 import { STATUS } from '../constants.js';
 import { fmt } from '../utils.js';
+import Icon from '../components/Icon.jsx';
 
 const CARD = { background: '#fff', border: '1px solid #ded8cc', borderRadius: 12 };
 
@@ -32,7 +33,7 @@ function compareText(now, prev, unit = '%') {
   return `${diff > 0 ? '+' : '−'}${Math.abs(Math.round(diff))}${unit} จากเดือนก่อน`;
 }
 
-export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpenVehicle }) {
+export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpenVehicle, onOpenStatus }) {
   const monthly = stats?.monthly || [];
   const statusCounts = stats?.statusCounts || [];
   const byMonth = new Map(monthly.map((m) => [m.month, m]));
@@ -129,24 +130,34 @@ export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpe
         <section style={{ ...CARD, padding: '16px 18px 18px' }}>
           <h2 style={{ margin: '0 0 4px', fontSize: '14.5px', fontWeight: 600 }}>งานแยกตามสถานะ</h2>
           <div style={{ fontSize: '11.5px', color: '#8a837a', marginBottom: 14 }}>
-            จำนวนรถนับแบบไม่ซ้ำคัน — รถคันเดียวที่มีหลายใบงานในสถานะเดียวกันนับเป็นคันเดียว
+            จำนวนรถนับแบบไม่ซ้ำคัน — รถคันเดียวที่มีหลายใบงานในสถานะเดียวกันนับเป็นคันเดียว · กดที่กล่องเพื่อดูรายการงานของสถานะนั้น
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(statusCounts.length, 1)}, minmax(0, 1fr))`, gap: 12 }}>
             {statusCounts.map((s) => {
               const color = STATUS[s.label] || STATUS['แจ้งใหม่'];
+              const empty = s.jobCount === 0;
               return (
-                <div
+                <button
                   key={s.code}
+                  className={empty ? undefined : 'hov-card'}
+                  onClick={() => !empty && onOpenStatus(s.label)}
+                  disabled={empty}
+                  title={empty ? `ยังไม่มีงานสถานะ ${s.label}` : `ดูรายการงานสถานะ ${s.label}`}
                   style={{
+                    font: 'inherit',
+                    textAlign: 'left',
+                    width: '100%',
                     border: '1px solid #e8e3d8',
                     borderRadius: 10,
                     padding: '12px 14px',
-                    background: s.jobCount ? color.bg : '#faf8f4',
+                    background: empty ? '#faf8f4' : color.bg,
+                    cursor: empty ? 'default' : 'pointer',
                   }}
                 >
                   <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '12.5px', fontWeight: 600, color: color.fg }}>
                     <span style={{ width: 8, height: 8, borderRadius: '50%', background: color.dot, flex: '0 0 auto' }} />
                     {s.label}
+                    {!empty && <Icon name="chevronRight" size={14} style={{ marginLeft: 'auto', opacity: 0.5 }} />}
                   </div>
                   <div style={{ fontSize: 24, fontWeight: 700, marginTop: 8, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>
                     {s.vehicleCount}
@@ -155,7 +166,7 @@ export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpe
                   <div style={{ fontSize: '11.5px', color: '#6f6860', marginTop: 4 }}>
                     {s.jobCount} ใบงาน{s.totalCost > 0 ? ` · ${fmt(s.totalCost)} ฿` : ''}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
@@ -191,10 +202,17 @@ export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpe
 
           <section style={{ ...CARD, padding: '16px 18px 18px' }}>
             <h2 style={{ margin: '0 0 4px', fontSize: '14.5px', fontWeight: 600 }}>รถที่ซ่อมบ่อย</h2>
-            <div style={{ fontSize: '11.5px', color: '#8a837a', marginBottom: 14 }}>นับจากใบงานทั้งหมดในระบบ</div>
+            <div style={{ fontSize: '11.5px', color: '#8a837a', marginBottom: 14 }}>
+              นับจากใบงานทั้งหมดในระบบ · กดที่รถเพื่อดูประวัติซ่อมของคันนั้น
+            </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
               {frequent.map((v) => (
-                <div key={v.code} onClick={() => onOpenVehicle(v.code)} style={{ cursor: 'pointer' }}>
+                <div
+                  key={v.code}
+                  onClick={() => onOpenVehicle(v.code)}
+                  title={`ดูประวัติซ่อมของ ${v.code}`}
+                  style={{ cursor: 'pointer' }}
+                >
                   <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12.5px', marginBottom: 5 }}>
                     <span style={{ fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600 }}>{v.code}</span>
                     <span style={{ color: '#6f6860' }}>
