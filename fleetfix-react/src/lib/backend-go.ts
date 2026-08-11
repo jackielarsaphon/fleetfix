@@ -20,6 +20,7 @@ import type {
   NewVehicleForm,
   Part,
   PartInput,
+  StatusCount,
   Photo,
   PhotoKind,
   Place,
@@ -164,12 +165,14 @@ export async function fetchAll(): Promise<DataSet> {
 export async function fetchDashboard(): Promise<DashboardStats> {
   const d = await request<{
     monthly: MonthlyCost[] | null;
+    statusCounts: StatusCount[] | null;
     avgRepairDays: number | null;
     avgRepairDaysPrev: number | null;
   }>('GET', '/api/dashboard');
 
   return {
     monthly: d?.monthly || [],
+    statusCounts: d?.statusCounts || [],
     avgRepairDays: d?.avgRepairDays ?? null,
     avgRepairDaysPrev: d?.avgRepairDaysPrev ?? null,
   };

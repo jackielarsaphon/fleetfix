@@ -208,9 +208,16 @@ export async function fetchAll(): Promise<DataSet> {
 
 /** ตัวเลขแดชบอร์ด — อ่านจาก view monthly_repair_cost และคำนวณเวลาซ่อมเฉลี่ยจากใบงานที่ปิดแล้ว */
 export async function fetchDashboard(): Promise<DashboardStats> {
-  const [monthRows, closed] = await Promise.all([
+  const [monthRows, statusRows, closed] = await Promise.all([
     db.from('monthly_repair_cost').select('month, job_count, total_cost').order('month').then(unwrap) as Promise<
       { month: string; job_count: number; total_cost: number }[]
+    >,
+    db
+      .from('job_status_counts')
+      .select('code, label_th, sort_order, job_count, vehicle_count, total_cost')
+      .order('sort_order')
+      .then(unwrap) as Promise<
+      { code: string; label_th: string; sort_order: number; job_count: number; vehicle_count: number; total_cost: number }[]
     >,
     db.from('repair_jobs').select('reported_on, done_on').not('done_on', 'is', null).then(unwrap) as Promise<
       { reported_on: string; done_on: string }[]
@@ -235,6 +242,14 @@ export async function fetchDashboard(): Promise<DashboardStats> {
     monthly: monthRows.map((r) => ({
       month: r.month.slice(0, 7),
       jobCount: Number(r.job_count),
+      totalCost: Number(r.total_cost),
+    })),
+    statusCounts: statusRows.map((r) => ({
+      code: r.code,
+      label: r.label_th,
+      order: r.sort_order,
+      jobCount: Number(r.job_count),
+      vehicleCount: Number(r.vehicle_count),
       totalCost: Number(r.total_cost),
     })),
     avgRepairDays: avgOf(thisKey),

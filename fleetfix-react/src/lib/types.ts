@@ -254,9 +254,20 @@ export interface MonthlyCost {
   totalCost: number;
 }
 
+/** สรุปงานของสถานะหนึ่ง — vehicleCount นับรถไม่ซ้ำคัน จึงน้อยกว่า jobCount ได้ */
+export interface StatusCount {
+  code: string;
+  label: string;
+  order: number;
+  jobCount: number;
+  vehicleCount: number;
+  totalCost: number;
+}
+
 /** ตัวเลขสำหรับแดชบอร์ดที่คำนวณจากฐานข้อมูล */
 export interface DashboardStats {
   monthly: MonthlyCost[];
+  statusCounts: StatusCount[];
   /** เวลาซ่อมเฉลี่ย (วัน) ของงานที่ปิดในเดือนนี้ / เดือนก่อน — null เมื่อเดือนนั้นไม่มีงานปิด */
   avgRepairDays: number | null;
   avgRepairDaysPrev: number | null;

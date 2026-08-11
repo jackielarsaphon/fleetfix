@@ -60,6 +60,7 @@ export type {
   NewVehicleForm,
   Part,
   PartInput,
+  StatusCount,
   Photo,
   PhotoKind,
   Place,

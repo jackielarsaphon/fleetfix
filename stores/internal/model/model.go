@@ -105,11 +105,13 @@ type Place struct {
 }
 
 type StatusCount struct {
-	Code      string  `json:"code"`
-	Label     string  `json:"label"`
-	Order     int     `json:"order"`
-	JobCount  int     `json:"jobCount"`
-	TotalCost float64 `json:"totalCost"`
+	Code     string `json:"code"`
+	Label    string `json:"label"`
+	Order    int    `json:"order"`
+	JobCount int    `json:"jobCount"`
+	// จำนวนรถไม่ซ้ำคันในสถานะนี้ — ไม่เท่ากับ JobCount เพราะรถคันเดียวมีได้หลายใบงาน
+	VehicleCount int     `json:"vehicleCount"`
+	TotalCost    float64 `json:"totalCost"`
 }
 
 type MonthlyCost struct {

@@ -49,7 +49,7 @@ func (s *Store) AvgRepairDays(ctx context.Context) (thisMonth, prevMonth *float6
 // StatusCounts คืนจำนวนใบงานและค่าซ่อมรวมแยกตามสถานะ
 func (s *Store) StatusCounts(ctx context.Context) ([]model.StatusCount, error) {
 	rows, err := s.pool.Query(ctx, `
-		select code, label_th, sort_order, job_count::int, total_cost::float8
+		select code, label_th, sort_order, job_count::int, vehicle_count::int, total_cost::float8
 		  from public.job_status_counts
 		 order by sort_order`)
 	if err != nil {
@@ -60,7 +60,7 @@ func (s *Store) StatusCounts(ctx context.Context) ([]model.StatusCount, error) {
 	list := make([]model.StatusCount, 0, 4)
 	for rows.Next() {
 		var c model.StatusCount
-		if err := rows.Scan(&c.Code, &c.Label, &c.Order, &c.JobCount, &c.TotalCost); err != nil {
+		if err := rows.Scan(&c.Code, &c.Label, &c.Order, &c.JobCount, &c.VehicleCount, &c.TotalCost); err != nil {
 			return nil, classify(err)
 		}
 		list = append(list, c)

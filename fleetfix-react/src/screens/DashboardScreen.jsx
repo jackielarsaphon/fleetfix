@@ -1,3 +1,4 @@
+import { STATUS } from '../constants.js';
 import { fmt } from '../utils.js';
 
 const CARD = { background: '#fff', border: '1px solid #ded8cc', borderRadius: 12 };
@@ -33,6 +34,7 @@ function compareText(now, prev, unit = '%') {
 
 export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpenVehicle }) {
   const monthly = stats?.monthly || [];
+  const statusCounts = stats?.statusCounts || [];
   const byMonth = new Map(monthly.map((m) => [m.month, m]));
 
   // เติมเดือนที่ไม่มีงานให้เป็น 0 เพื่อให้กราฟไม่ข้ามเดือน
@@ -123,6 +125,41 @@ export default function DashboardScreen({ counts, perVehicle, jobs, stats, onOpe
             </div>
           ))}
         </div>
+
+        <section style={{ ...CARD, padding: '16px 18px 18px' }}>
+          <h2 style={{ margin: '0 0 4px', fontSize: '14.5px', fontWeight: 600 }}>งานแยกตามสถานะ</h2>
+          <div style={{ fontSize: '11.5px', color: '#8a837a', marginBottom: 14 }}>
+            จำนวนรถนับแบบไม่ซ้ำคัน — รถคันเดียวที่มีหลายใบงานในสถานะเดียวกันนับเป็นคันเดียว
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: `repeat(${Math.max(statusCounts.length, 1)}, minmax(0, 1fr))`, gap: 12 }}>
+            {statusCounts.map((s) => {
+              const color = STATUS[s.label] || STATUS['แจ้งใหม่'];
+              return (
+                <div
+                  key={s.code}
+                  style={{
+                    border: '1px solid #e8e3d8',
+                    borderRadius: 10,
+                    padding: '12px 14px',
+                    background: s.jobCount ? color.bg : '#faf8f4',
+                  }}
+                >
+                  <div style={{ display: 'flex', alignItems: 'center', gap: 7, fontSize: '12.5px', fontWeight: 600, color: color.fg }}>
+                    <span style={{ width: 8, height: 8, borderRadius: '50%', background: color.dot, flex: '0 0 auto' }} />
+                    {s.label}
+                  </div>
+                  <div style={{ fontSize: 24, fontWeight: 700, marginTop: 8, letterSpacing: '-0.5px', fontVariantNumeric: 'tabular-nums' }}>
+                    {s.vehicleCount}
+                    <span style={{ fontSize: 12.5, fontWeight: 500, color: '#6f6860', marginLeft: 5 }}>คัน</span>
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#6f6860', marginTop: 4 }}>
+                    {s.jobCount} ใบงาน{s.totalCost > 0 ? ` · ${fmt(s.totalCost)} ฿` : ''}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </section>
 
         <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.35fr) minmax(0, 1fr)', gap: 16, alignItems: 'start' }}>
           <section style={{ ...CARD, padding: '16px 18px 20px' }}>
